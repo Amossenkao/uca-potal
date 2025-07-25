@@ -8,6 +8,7 @@ import type { NavItem } from "@/types";
 import { getNavItems } from "@/utils/utils";
 import { ChevronDown } from "lucide-react";
 import { useUserData } from "@/context/UserContext";
+import Logo from "@/components/Logo";
 
 const AppSidebar: React.FC = () => {
   const user = useUserData();
@@ -173,12 +174,9 @@ const renderMenuItems = (items: NavItem[]) => (
       <div className={`py-8 flex ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-start"}`}>
         <Link href="/">
           {isExpanded || isHovered || isMobileOpen ? (
-            <>
-              <Image className="dark:hidden" src="/images/logo/logo.svg" alt="Logo" width={150} height={40} />
-              <Image className="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Logo" width={150} height={40} />
-            </>
+            <Logo/>
           ) : (
-            <Image src="/images/logo/logo-icon.svg" alt="Logo" width={32} height={32} />
+            <img src="https://res.cloudinary.com/dcalueltd/image/upload/v1753368074/school-management-system/uca/Logo.png" alt="Logo" width={70} height={70} />
           )}
         </Link>
       </div>

@@ -12,7 +12,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    fetch('/students.json')
+    fetch('/data/students.json')
       .then(res => res.json())
       .then(json => setData(json));
   }, []);

@@ -16,15 +16,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${outfit.className} dark:bg-gray-900`}>
+      <body className={`${outfit.className} dark:bg-gray-900`} >
         <ThemeProvider>
-          <SidebarProvider>
-            <UserProvider>
-              {children}
-            </UserProvider>
-          </SidebarProvider>
+          <UserProvider>
+            <SidebarProvider>{children}</SidebarProvider>
+          </UserProvider>
         </ThemeProvider>
       </body>
     </html>
-  );
+  ); 
 }

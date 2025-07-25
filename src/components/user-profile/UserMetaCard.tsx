@@ -1,15 +1,17 @@
 "use client";
 import React from "react";
 import { useModal } from "../../hooks/useModal";
-import { Modal } from "../ui/modal";
-import Button from "../ui/button/Button";
-import Input from "../form/input/InputField";
-import Label from "../form/Label";
 import Image from "next/image";
-
+import { useUserData } from "@/context/UserContext";
+import Spinner from "../ui/spinner";
 
 export default function UserMetaCard() {
-  const { isOpen, openModal, closeModal } = useModal();
+
+  const user = useUserData();
+  if (!user) {
+    return <Spinner/>
+  }
+  const { closeModal } = useModal();
   const handleSave = () => {
     // Handle save logic here
     console.log("Saving changes...");
