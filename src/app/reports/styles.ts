@@ -4,27 +4,31 @@ const styles = StyleSheet.create({
   page: {
     flexDirection: 'column',
     backgroundColor: '#ffffff',
-    padding: 20,
-    fontSize: 8,
+    padding: 25,
+    fontSize: 12,
   },
   
   // Header section
   topRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    paddingBottom: 5,
+    marginTop: 15,
+    marginBottom: 20,
     borderBottom: 1,
-    borderBottomColor: '#000',
+    borderBottomColor: '#787',
+    overflow: "hidden",
   },
   
   headerLeft: {
     flexDirection: 'column',
+    width: 700,
+    gap: 6,
+    paddingBottom: 4,
   },
   
   headerRight: {
     flexDirection: 'column',
-    alignItems: 'flex-end',
+    width: 700,
+    paddingLeft: 120,
   },
   
   // Main grades section
@@ -55,20 +59,34 @@ const styles = StyleSheet.create({
     borderBottomColor: '#000',
     fontWeight: 'bold',
   },
-  
+
   // Table styles
+
+  subjectCell: {
+    flex: 2,
+    padding: 2,
+    borderRight: 0.5,
+    borderRightColor: '#000',
+    textAlign: 'left',
+    fontSize: 8,
+    fontWeight: "bold"
+  },
+  
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: '#f0f0f0',
     borderBottom: 1,
     borderBottomColor: '#000',
+    fontSize: 14,
+    fontWeight: "bold",
   },
   
   tableRow: {
     flexDirection: 'row',
     borderBottom: 0.5,
     borderBottomColor: '#000',
-    minHeight: 12,
+    height: 16,
+    fontSize: 12,
   },
   
   tableCell: {
@@ -77,34 +95,30 @@ const styles = StyleSheet.create({
     borderRight: 0.5,
     borderRightColor: '#000',
     textAlign: 'center',
-    fontSize: 7,
+    fontSize: 8,
   },
   
-  subjectCell: {
-    flex: 2,
-    padding: 2,
-    borderRight: 0.5,
-    borderRightColor: '#000',
-    textAlign: 'left',
-    fontSize: 7,
-  },
   
   lastCell: {
     flex: 1,
     padding: 2,
     textAlign: 'center',
-    fontSize: 7,
+    fontSize: 8,
+    justifyContent: "center",
+    alignContent: "center",
+    alignItems: "center"
   },
   
   // Bottom section
   bottomSection: {
     flexDirection: 'row',
     marginTop: 10,
+    justifyContent: "space-around"
   },
   
   leftBottom: {
     flex: 1,
-    marginRight: 10,
+    marginRight: 35,
   },
   
   rightBottom: {
@@ -125,7 +139,7 @@ const styles = StyleSheet.create({
   },
   
   gradingText: {
-    fontSize: 6,
+    fontSize: 10,
     marginBottom: 2,
   },
   
@@ -142,6 +156,12 @@ const styles = StyleSheet.create({
   },
   
   // Second page styles
+
+  pageTwoContainer: {
+    flexDirection: "row",
+    height: "90%",
+    gap: 25
+  },
   schoolHeader: {
     textAlign: 'center',
     marginBottom: 20,
@@ -173,7 +193,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     borderWidth: 1,
     borderColor: '#000',
-    padding: 10,
   },
   
   parentsSectionTitle: {
