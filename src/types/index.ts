@@ -1,17 +1,11 @@
 import type { LucideIcon } from "lucide-react";
 
-
-
 interface SchoolNavItem {
   name: string;
   icon?: LucideIcon;
   href?: string;
   subItems?: { name: string; href: string; icon?: LucideIcon }[]
 
-}
-
-interface SchoolHomepageSection {
-  
 }
 
 export interface School {
@@ -45,7 +39,9 @@ export interface UserInfo {
     phone: string;
     address: string;
     photo?: string;
-  }
+  },
+
+  grades?: any[]
 
 }
 

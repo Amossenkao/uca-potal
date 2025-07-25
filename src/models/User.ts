@@ -25,6 +25,7 @@ export interface IUser extends Document {
     address: string;
     photo?: string;
   };
+  grades?: any[]
 }
 
 const GuardianSchema = new Schema({
@@ -54,6 +55,7 @@ const UserSchema: Schema<IUser> = new Schema({
   bio: { type: String },
   photo: { type: String },
   guardian: { type: GuardianSchema },
+  grades: []
 });
 
 const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);

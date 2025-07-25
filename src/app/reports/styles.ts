@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
   schoolDetails: {
     fontSize: 10,
     marginBottom: 2,
-    top: -70
+    top: -75
   },
   
   reportTitle: {
