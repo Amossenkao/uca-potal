@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   
   leftBottom: {
     flex: 1,
-    marginRight: 35,
+    marginRight: 40,
   },
   
   rightBottom: {
@@ -144,44 +144,49 @@ const styles = StyleSheet.create({
   },
   
   promotionText: {
-    textAlign: 'center',
     fontWeight: 'bold',
     marginBottom: 10,
-    fontSize: 8,
+    fontSize: 10,
+    paddingLeft: 50,
   },
   
   signatureSection: {
     marginTop: 20,
-    textAlign: 'center',
+    paddingLeft: 50,
   },
   
   // Second page styles
 
   pageTwoContainer: {
     flexDirection: "row",
-    height: "90%",
-    gap: 25
+    height: "100%",
+    gap: 25,
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
   },
   schoolHeader: {
     textAlign: 'center',
     marginBottom: 20,
   },
-  
+
+
   schoolName: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 5,
+    marginTop: 10
   },
   
   schoolDetails: {
     fontSize: 10,
     marginBottom: 2,
+    top: -70
   },
   
   reportTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    marginTop: 10,
+    marginTop: -90,
   },
   
   studentInfo: {
@@ -197,6 +202,7 @@ const styles = StyleSheet.create({
   
   parentsSectionTitle: {
     fontWeight: 'bold',
+    marginTop: 20,
     marginBottom: 10,
     textAlign: 'center',
   },
