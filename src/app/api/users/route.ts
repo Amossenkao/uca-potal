@@ -116,17 +116,7 @@ const validateUserData = (userData: any) => {
       break;
       
     case 'teacher':
-      if (!userData.subjects || userData.subjects.length === 0) {
-        errors.push('At least one subject is required for teachers');
-      }
-      // Validate each subject has required fields
-      if (userData.subjects) {
-        userData.subjects.forEach((subject: any, index: number) => {
-          if (!subject.subject || !subject.level || !subject.classes || subject.classes.length === 0) {
-            errors.push(`Subject at index ${index} must have subject, level, and at least one class`);
-          }
-        });
-      }
+
       if (userData.isSponsor && !userData.sponsorClass) {
         errors.push('Sponsor class is required when teacher is marked as sponsor');
       }

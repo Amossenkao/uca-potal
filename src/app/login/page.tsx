@@ -50,6 +50,7 @@ const LoginPage = () => {
   }, [isInitializing, isLoading, user, isLoggedIn, router]);
 
   if (isInitializing || (isLoading && !isAwaitingOtp)) {
+
     return (
       <PageLoading variant='school'/>
     );

@@ -5,6 +5,12 @@ import { connectDB } from '@/lib/mongoose';
 import { serialize } from 'cookie';
 import { Student, Teacher, Administrator } from '@/models/User';
 
+const models = {
+  student: Student,
+  teacher: Teacher,
+  administrator: Administrator,
+}
+
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
 
@@ -108,14 +114,14 @@ async function handleLogin(username: string, password: string, role: string, pos
     );
   }
 
-  let user;
-  switch (role) {
-    case "student": user = await Student.findOne({ username, role })
-      break;
-    case "teacher": user = await Teacher.findOne({ username, role })
-      break;
-    case "administrator": user = await Administrator.findOne({username, role})
-  }
+  let user = await models[role].findOne({username, role})
+  // switch (role) {
+  //   case "student": user = await Student.findOne({ username, role })
+  //     break;
+  //   case "teacher": user = await Teacher.findOne({ username, role })
+  //     break;
+  //   case "administrator": user = await Administrator.findOne({username, role})
+  // }
 
   // Verify user exists
   if (!user) {

@@ -30,7 +30,8 @@ import {
   LayoutDashboard,
   LogIn,
   X,
-  Info
+  Info,
+  Loader2
 } from "lucide-react"
 import Logo from "../Logo";
 import useAuthStore from "@/store/useAuth"; // Fixed import path
@@ -42,6 +43,13 @@ export default function NavBar() {
   const { isLoggedIn, logout, loadFromStorage } = useAuthStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  
+  // Loading states
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isNavigatingToDashboard, setIsNavigatingToDashboard] = useState(false);
+  const [isNavigatingHome, setIsNavigatingHome] = useState(false);
+  const [isNavigatingToSection, setIsNavigatingToSection] = useState('');
 
   // Handle mounting and load auth state
   useEffect(() => {
@@ -49,17 +57,39 @@ export default function NavBar() {
     loadFromStorage();
   }, [loadFromStorage]);
 
-  const handleLogin = () => {
-    router.push("/login");
+  const handleLogin = async () => {
+    setIsLoggingIn(true);
+    try {
+      await router.push("/login");
+    } finally {
+      // Add a small delay to show the loading state
+      setTimeout(() => {
+        setIsLoggingIn(false);
+      }, 300);
+    }
   };
 
-  const handleLogout = () => {
-    logout();
-    router.push("/");
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await logout();
+      await router.push("/");
+    } finally {
+      setTimeout(() => {
+        setIsLoggingOut(false);
+      }, 300);
+    }
   };
 
-  const navigateToDashboard = () => {
-    router.push('/dashboard');
+  const navigateToDashboard = async () => {
+    setIsNavigatingToDashboard(true);
+    try {
+      await router.push('/dashboard');
+    } finally {
+      setTimeout(() => {
+        setIsNavigatingToDashboard(false);
+      }, 300);
+    }
   };
 
   const toggleSidebar = () => {
@@ -70,18 +100,42 @@ export default function NavBar() {
     setIsSidebarOpen(false);
   };
 
-  const handleNavClick = (href) => {
+  const handleNavClick = async (href) => {
     if (href.startsWith('#')) {
       // Handle anchor links
-      const element = document.querySelector(href);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth' });
+      const sectionName = href.substring(1);
+      setIsNavigatingToSection(sectionName);
+      
+      try {
+        const element = document.querySelector(href);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+          // Wait for smooth scroll to complete
+          await new Promise(resolve => setTimeout(resolve, 800));
+        }
+      } finally {
+        setIsNavigatingToSection('');
       }
     } else {
       // Handle route navigation
-      router.push(href);
+      if (href === '/') {
+        setIsNavigatingHome(true);
+      }
+      
+      try {
+        await router.push(href);
+      } finally {
+        setTimeout(() => {
+          setIsNavigatingHome(false);
+        }, 300);
+      }
     }
     closeSidebar();
+  };
+
+  // Helper function to check if a section is loading
+  const isSectionLoading = (sectionName) => {
+    return isNavigatingToSection === sectionName;
   };
 
   // Don't render until mounted to prevent hydration issues
@@ -91,6 +145,15 @@ export default function NavBar() {
 
   const isLoginPage = path === "/login" || path === "/home/login";
   const isHomePage = path === "/" || path === "/home";
+
+  // Loading icon component
+  const LoadingIcon = ({ isLoading, defaultIcon: DefaultIcon }) => {
+    return isLoading ? (
+      <Loader2 className="h-4 w-4 animate-spin" />
+    ) : (
+      <DefaultIcon className="h-4 w-4" />
+    );
+  };
 
   return (
     <div className="sticky top-0 z-50">
@@ -125,9 +188,10 @@ export default function NavBar() {
                 {!isHomePage && (
                   <button 
                     onClick={() => handleNavClick("/")}
-                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left"
+                    disabled={isNavigatingHome}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Home className="h-5 w-5" />
+                    <LoadingIcon isLoading={isNavigatingHome} defaultIcon={Home} />
                     <span className="font-medium">Home</span>
                   </button>
                 )}
@@ -135,9 +199,10 @@ export default function NavBar() {
                 {isHomePage && (
                   <button 
                     onClick={() => handleNavClick("#about")}
-                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left"
+                    disabled={isSectionLoading('about')}
+                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Info className="h-5 w-5" />
+                    <LoadingIcon isLoading={isSectionLoading('about')} defaultIcon={Info} />
                     <span className="font-medium">About Upstairs</span>
                   </button>
                 )}
@@ -150,24 +215,27 @@ export default function NavBar() {
                   </div>
                   <div className="ml-8 space-y-1">
                     <button 
-                      onClick={() => handleNavClick("#information-sheets")} 
-                      className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left"
+                      onClick={() => handleNavClick("#information-sheets")}
+                      disabled={isSectionLoading('information-sheets')}
+                      className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <FileText className="h-4 w-4" />
+                      <LoadingIcon isLoading={isSectionLoading('information-sheets')} defaultIcon={FileText} />
                       Information Sheets
                     </button>
                     <button 
-                      onClick={() => handleNavClick("#entrance")} 
-                      className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left"
+                      onClick={() => handleNavClick("#entrance")}
+                      disabled={isSectionLoading('entrance')}
+                      className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <DoorOpen className="h-4 w-4" />
+                      <LoadingIcon isLoading={isSectionLoading('entrance')} defaultIcon={DoorOpen} />
                       Entrance
                     </button>
                     <button 
-                      onClick={() => handleNavClick("#registration")} 
-                      className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left"
+                      onClick={() => handleNavClick("#registration")}
+                      disabled={isSectionLoading('registration')}
+                      className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <ClipboardList className="h-4 w-4" />
+                      <LoadingIcon isLoading={isSectionLoading('registration')} defaultIcon={ClipboardList} />
                       General Registration
                     </button>
                   </div>
@@ -181,24 +249,27 @@ export default function NavBar() {
                   </div>
                   <div className="ml-8 space-y-1">
                     <button 
-                      onClick={() => handleNavClick("#tuition-fees")} 
-                      className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left"
+                      onClick={() => handleNavClick("#tuition-fees")}
+                      disabled={isSectionLoading('tuition-fees')}
+                      className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <DollarSign className="h-4 w-4" />
+                      <LoadingIcon isLoading={isSectionLoading('tuition-fees')} defaultIcon={DollarSign} />
                       Pay Tuition Fees
                     </button>
                     <button 
-                      onClick={() => handleNavClick("#registration-fees")} 
-                      className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left"
+                      onClick={() => handleNavClick("#registration-fees")}
+                      disabled={isSectionLoading('registration-fees')}
+                      className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Receipt className="h-4 w-4" />
+                      <LoadingIcon isLoading={isSectionLoading('registration-fees')} defaultIcon={Receipt} />
                       Pay Registration Fees
                     </button>
                     <button 
-                      onClick={() => handleNavClick("#other-fees")} 
-                      className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left"
+                      onClick={() => handleNavClick("#other-fees")}
+                      disabled={isSectionLoading('other-fees')}
+                      className="flex items-center gap-2 p-2 text-sm hover:bg-muted rounded-lg transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <MoreHorizontal className="h-4 w-4" />
+                      <LoadingIcon isLoading={isSectionLoading('other-fees')} defaultIcon={MoreHorizontal} />
                       Pay Other Fees
                     </button>
                   </div>
@@ -208,25 +279,28 @@ export default function NavBar() {
                   <>
                     <button 
                       onClick={() => handleNavClick("#facilities")}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left"
+                      disabled={isSectionLoading('facilities')}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Building className="h-5 w-5" />
+                      <LoadingIcon isLoading={isSectionLoading('facilities')} defaultIcon={Building} />
                       <span className="font-medium">Facilities</span>
                     </button>
                     
                     <button 
                       onClick={() => handleNavClick("#team")}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left"
+                      disabled={isSectionLoading('team')}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Users className="h-5 w-5" />
+                      <LoadingIcon isLoading={isSectionLoading('team')} defaultIcon={Users} />
                       <span className="font-medium">Team</span>
                     </button>
                     
                     <button 
                       onClick={() => handleNavClick("#contact")}
-                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left"
+                      disabled={isSectionLoading('contact')}
+                      className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors w-full text-left disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Phone className="h-5 w-5" />
+                      <LoadingIcon isLoading={isSectionLoading('contact')} defaultIcon={Phone} />
                       <span className="font-medium">Contact</span>
                     </button>
                   </>
@@ -239,18 +313,39 @@ export default function NavBar() {
           {!isLoginPage && (
             <div className="p-4 border-t border-border">
               {!isLoggedIn ? (
-                <Button onClick={handleLogin} className="w-full flex items-center gap-2">
-                  <LogIn className="h-4 w-4" />
-                  Login
+                <Button 
+                  onClick={handleLogin} 
+                  disabled={isLoggingIn}
+                  className="w-full flex items-center gap-2"
+                >
+                  <LoadingIcon isLoading={isLoggingIn} defaultIcon={LogIn} />
+                  {isLoggingIn ? 'Loading...' : 'Login'}
                 </Button>
               ) : (
                 <div className="space-y-2">
-                  <Button onClick={navigateToDashboard} className="w-full flex items-center gap-2">
-                    <LayoutDashboard className="h-4 w-4" />
-                    Dashboard
+                  <Button 
+                    onClick={navigateToDashboard} 
+                    disabled={isNavigatingToDashboard}
+                    className="w-full flex items-center gap-2"
+                  >
+                    <LoadingIcon isLoading={isNavigatingToDashboard} defaultIcon={LayoutDashboard} />
+                    {isNavigatingToDashboard ? 'Loading...' : 'Dashboard'}
                   </Button>
-                  <Button variant="outline" onClick={handleLogout} className="w-full" size="sm">
-                    Logout
+                  <Button 
+                    variant="outline" 
+                    onClick={handleLogout} 
+                    disabled={isLoggingOut}
+                    className="w-full" 
+                    size="sm"
+                  >
+                    {isLoggingOut ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                        Logging out...
+                      </>
+                    ) : (
+                      'Logout'
+                    )}
                   </Button>
                 </div>
               )}
@@ -273,9 +368,10 @@ export default function NavBar() {
               {!isHomePage && (
                 <button 
                   onClick={() => handleNavClick("/")}
-                  className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors"
+                  disabled={isNavigatingHome}
+                  className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Home className="h-4 w-4" />
+                  <LoadingIcon isLoading={isNavigatingHome} defaultIcon={Home} />
                   Home
                 </button>
               )}
@@ -283,9 +379,10 @@ export default function NavBar() {
               {isHomePage && (
                 <button 
                   onClick={() => handleNavClick("#about")}
-                  className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors"
+                  disabled={isSectionLoading('about')}
+                  className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Info className="h-4 w-4" />
+                  <LoadingIcon isLoading={isSectionLoading('about')} defaultIcon={Info} />
                   About Upstairs
                 </button>
               )}
@@ -303,22 +400,25 @@ export default function NavBar() {
                   <DropdownMenuItem 
                     className="flex items-center gap-2 cursor-pointer"
                     onClick={() => handleNavClick("#information-sheets")}
+                    disabled={isSectionLoading('information-sheets')}
                   >
-                    <FileText className="h-4 w-4" />
+                    <LoadingIcon isLoading={isSectionLoading('information-sheets')} defaultIcon={FileText} />
                     Information Sheets
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     className="flex items-center gap-2 cursor-pointer"
                     onClick={() => handleNavClick("#entrance")}
+                    disabled={isSectionLoading('entrance')}
                   >
-                    <DoorOpen className="h-4 w-4" />
+                    <LoadingIcon isLoading={isSectionLoading('entrance')} defaultIcon={DoorOpen} />
                     Entrance
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     className="flex items-center gap-2 cursor-pointer"
                     onClick={() => handleNavClick("#registration")}
+                    disabled={isSectionLoading('registration')}
                   >
-                    <ClipboardList className="h-4 w-4" />
+                    <LoadingIcon isLoading={isSectionLoading('registration')} defaultIcon={ClipboardList} />
                     General Registration
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -337,22 +437,25 @@ export default function NavBar() {
                   <DropdownMenuItem 
                     className="flex items-center gap-2 cursor-pointer"
                     onClick={() => handleNavClick("#tuition-fees")}
+                    disabled={isSectionLoading('tuition-fees')}
                   >
-                    <DollarSign className="h-4 w-4" />
+                    <LoadingIcon isLoading={isSectionLoading('tuition-fees')} defaultIcon={DollarSign} />
                     Pay Tuition Fees
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     className="flex items-center gap-2 cursor-pointer"
                     onClick={() => handleNavClick("#registration-fees")}
+                    disabled={isSectionLoading('registration-fees')}
                   >
-                    <Receipt className="h-4 w-4" />
+                    <LoadingIcon isLoading={isSectionLoading('registration-fees')} defaultIcon={Receipt} />
                     Pay Registration Fees
                   </DropdownMenuItem>
                   <DropdownMenuItem 
                     className="flex items-center gap-2 cursor-pointer"
                     onClick={() => handleNavClick("#other-fees")}
+                    disabled={isSectionLoading('other-fees')}
                   >
-                    <MoreHorizontal className="h-4 w-4" />
+                    <LoadingIcon isLoading={isSectionLoading('other-fees')} defaultIcon={MoreHorizontal} />
                     Pay Other Fees
                   </DropdownMenuItem>
                 </DropdownMenuContent>
@@ -362,23 +465,26 @@ export default function NavBar() {
                 <>
                   <button 
                     onClick={() => handleNavClick("#facilities")}
-                    className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors"
+                    disabled={isSectionLoading('facilities')}
+                    className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Building className="h-4 w-4" />
+                    <LoadingIcon isLoading={isSectionLoading('facilities')} defaultIcon={Building} />
                     Facilities
                   </button>
                   <button 
                     onClick={() => handleNavClick("#team")}
-                    className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors"
+                    disabled={isSectionLoading('team')}
+                    className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Users className="h-4 w-4" />
+                    <LoadingIcon isLoading={isSectionLoading('team')} defaultIcon={Users} />
                     Team
                   </button>
                   <button 
                     onClick={() => handleNavClick("#contact")}
-                    className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors"
+                    disabled={isSectionLoading('contact')}
+                    className="flex items-center gap-2 text-sm font-medium hover:text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Phone className="h-4 w-4" />
+                    <LoadingIcon isLoading={isSectionLoading('contact')} defaultIcon={Phone} />
                     Contact
                   </button>
                 </>
@@ -391,18 +497,38 @@ export default function NavBar() {
               {!isLoginPage && (
                 <div className="hidden md:flex items-center gap-4">
                   {!isLoggedIn ? (
-                    <Button onClick={handleLogin} className="flex items-center gap-2">
-                      <LogIn className="h-4 w-4" />
-                      Login
+                    <Button 
+                      onClick={handleLogin} 
+                      disabled={isLoggingIn}
+                      className="flex items-center gap-2"
+                    >
+                      <LoadingIcon isLoading={isLoggingIn} defaultIcon={LogIn} />
+                      {isLoggingIn ? 'Loading...' : 'Login'}
                     </Button>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <Button variant="outline" onClick={handleLogout} size="sm">
-                        Logout
+                      <Button 
+                        variant="outline" 
+                        onClick={handleLogout} 
+                        disabled={isLoggingOut}
+                        size="sm"
+                      >
+                        {isLoggingOut ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            Logging out...
+                          </>
+                        ) : (
+                          'Logout'
+                        )}
                       </Button>
-                      <Button onClick={navigateToDashboard} className="flex items-center gap-2">
-                        <LayoutDashboard className="h-4 w-4" />
-                        Dashboard
+                      <Button 
+                        onClick={navigateToDashboard} 
+                        disabled={isNavigatingToDashboard}
+                        className="flex items-center gap-2"
+                      >
+                        <LoadingIcon isLoading={isNavigatingToDashboard} defaultIcon={LayoutDashboard} />
+                        {isNavigatingToDashboard ? 'Loading...' : 'Dashboard'}
                       </Button>
                     </div>
                   )}
