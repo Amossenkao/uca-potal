@@ -1,408 +1,488 @@
-"use client";
-import React, { useState, useEffect, useCallback } from 'react';
-import {
-  User,
-  Users,
-  GraduationCap,
-  Settings,
-  ArrowLeft,
-  LogIn,
-  AlertCircle,
-} from 'lucide-react';
-import NavBar from '@/components/sections/NavBar';
+"use client"
+import React, { useState, useEffect } from 'react';
+import { Eye, EyeOff, User, Lock, Shield, BookOpen, GraduationCap, Users, Settings, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import useAuthStore from '@/store/useAuthStore';
-import Spinner from '@/components/ui/spinner';
+import useAuth from '@/store/useAuth';
+import {PageLoading} from "@/components/loading"
 
-const SchoolLoginPage = () => {
-  const { login, isLoggedIn, loadFromStorage, error, isLoading } = useAuthStore();
+const LoginPage = () => {
   const router = useRouter();
+  const [selectedRole, setSelectedRole] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [adminPosition, setAdminPosition] = useState('');
+  const [showForgotPasswordModal, setShowForgotPasswordModal] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   
-  const [mounted, setMounted] = useState(false);
-  const [selectedRole, setSelectedRole] = useState(null);
+  const {
+    isLoading, 
+    isLoggedIn, 
+    user, 
+    error,
+    sessionId,
+    isAwaitingOtp,
+    otpContact,
+    login,
+    verifyOtp,
+    resendOtp,
+    clearError,
+    resetOtpState,
+    loadFromStorage // Make sure this is available from your store
+  } = useAuth();
+  
   const [formData, setFormData] = useState({
     username: '',
     password: '',
+    otp: ''
   });
-  const [errorMessage, setErrorMessage] = useState('');
 
-  // Stable reference to loadFromStorage
-  const stableLoadFromStorage = useCallback(() => {
-    if (loadFromStorage) {
-      loadFromStorage();
-    }
+  // Load authentication state from localStorage on mount
+  useEffect(() => {
+    loadFromStorage();
+    setIsInitializing(false);
   }, [loadFromStorage]);
 
-  // Handle mounting and loading auth state
+  // Redirect if already logged in
   useEffect(() => {
-    setMounted(true);
-    stableLoadFromStorage(); // Load auth state from localStorage
-  }, [stableLoadFromStorage]);
-
-  // Load saved role from localStorage after mounting
-  useEffect(() => {
-    if (mounted && typeof window !== 'undefined') {
-      try {
-        const savedRole = localStorage.getItem('selectedRole');
-        if (savedRole) {
-          const parsedRole = JSON.parse(savedRole);
-          // Validate that the parsed role has the expected structure
-          if (parsedRole && parsedRole.id && parsedRole.title && parsedRole.icon) {
-            setSelectedRole(parsedRole);
-          } else {
-            localStorage.removeItem('selectedRole');
-          }
-        }
-      } catch (error) {
-        console.error('Error parsing saved role:', error);
-        localStorage.removeItem('selectedRole');
-      }
+    // Only redirect after we've checked localStorage and we have a user
+    if (!isInitializing && !isLoading && user && isLoggedIn) {
+      router.push("/dashboard");
     }
+  }, [isInitializing, isLoading, user, isLoggedIn, router]);
 
-    return localStorage.removeItem('selectedRole');
-  }, [mounted]);
-
-  // Handle redirect after successful login
-  useEffect(() => {
-    if (mounted && isLoggedIn && !isLoading) {
-      router.replace("/dashboard");
-    }
-  }, [isLoggedIn, mounted, router, isLoading]);
-
-  // Clear error when store error changes
-  useEffect(() => {
-    if (error) {
-      setErrorMessage(error);
-    }
-  }, [error]);
+  if (isInitializing || (isLoading && !isAwaitingOtp)) {
+    return (
+      <PageLoading variant='school'/>
+    );
+  }
 
   const roles = [
-    {
-      id: 'student',
-      title: 'Student',
-      icon: GraduationCap,
-      description: 'Access courses, assignments, grades, and school resources',
-      color: 'bg-brand-500',
-    },
-    {
-      id: 'parent',
-      title: 'Parent',
-      icon: Users,
-      description: "Monitor your child's progress, communicate with teachers",
-      color: 'bg-success-500',
-    },
-    {
-      id: 'teacher',
-      title: 'Teacher',
-      icon: User,
-      description: 'Manage classes, create assignments, track student progress',
-      color: 'bg-theme-purple-500',
-    },
-    {
-      id: 'administrator',
-      title: 'Administrator',
-      icon: Settings,
-      description: 'System management, user administration, and school oversight',
-      color: 'bg-error-500',
-    },
+    { value: 'student', label: 'Student/Parent', icon: GraduationCap, color: 'bg-blue-500' },
+    { value: 'teacher', label: 'Teacher', icon: BookOpen, color: 'bg-green-500' },
+    { value: 'administrator', label: 'School Administrator', icon: Users, color: 'bg-purple-500' },
+    { value: 'admin', label: 'System Admin', icon: Shield, color: 'bg-red-500' }
   ];
 
-  const handleRoleSelect = (role) => {
-    setSelectedRole(role);
-    setErrorMessage('');
-    // Save selected role to localStorage with error handling
-    if (mounted && typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('selectedRole', JSON.stringify(role));
-      } catch (error) {
-        console.error('Error saving role to localStorage:', error);
-      }
-    }
+  const adminPositions = [
+    'principal',
+    'vice_principal',
+    'head_of_department',
+    'academic_coordinator',
+    'discipline_coordinator',
+    'registrar',
+    'supervisor',
+    'proprietor',
+    'secretary',
+    'dean_of_students',
+    'cashier'
+  ];
+
+  const positionLabels = {
+    'principal': 'Principal',
+    'vice_principal': 'Vice Principal',
+    'head_of_department': 'Head of Department',
+    'academic_coordinator': 'Academic Coordinator',
+    'discipline_coordinator': 'Discipline Coordinator',
+    'registrar': 'Registrar',
+    'supervisor': 'Supervisor',
+    'proprietor': 'Proprietor',
+    'secretary': 'Secretary',
+    'dean_of_students': 'Dean of Students',
+    'cashier': 'Cashier'
   };
 
   const handleInputChange = (e) => {
-    setErrorMessage('');
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+    // Clear error when user starts typing
+    if (error) clearError();
   };
 
-  const handleLogin = async () => {
-    // Clear any existing error messages
-    setErrorMessage('');
-
-    // Validation
-    if (!formData.username.trim() || !formData.password.trim()) {
-      setErrorMessage('Please enter both username and password.');
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    
+    // Validate form inputs
+    if (!formData.username || !formData.password) {
       return;
     }
 
-    if (!selectedRole) {
-      setErrorMessage('Please select a role first.');
+    if (selectedRole === 'administrator' && !adminPosition) {
       return;
     }
+
+    clearError();
+    
+    const loginData = {
+      role: selectedRole,
+      username: formData.username,
+      password: formData.password,
+      ...(selectedRole === 'administrator' && { position: adminPosition })
+    };
 
     try {
-      const { username, password } = formData;
-      const success = await login(username.trim(), password);
-        
-      if (!success) {
-        // Use the error from the store if available, otherwise use a generic message
-        setErrorMessage(error || "Login failed. Please check your credentials.");
-        return;
+      const success = await login(loginData);
+      
+      if (success) {
+        // Login successful, redirect will happen via useEffect
+        console.log('Login successful, user:', user);
       }
-
-      // Login successful - the useEffect will handle the redirect
-    } catch (loginError) {
-      console.error('Login error:', loginError);
-      setErrorMessage("An unexpected error occurred. Please try again.");
+      // If not successful but no error, it means OTP is required for admin
+      // The UI will automatically show OTP input based on isAwaitingOtp state
+    } catch (err) {
+      console.error('Login failed:', err);
     }
   };
 
-  const handleBack = () => {
-    setSelectedRole(null);
-    setFormData({ username: '', password: '' });
-    setErrorMessage('');
-    // Clear saved role from localStorage with error handling
-    if (mounted && typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem('selectedRole');
-      } catch (error) {
-        console.error('Error removing role from localStorage:', error);
+  const handleOtpVerification = async (e) => {
+    e.preventDefault();
+    
+    if (!formData.otp || formData.otp.length !== 6) {
+      return;
+    }
+
+    clearError();
+    
+    try {
+      const success = await verifyOtp(formData.otp);
+      
+      if (success) {
+        console.log('OTP verification successful');
+        // Redirect will happen via useEffect
       }
+    } catch (err) {
+      console.error('OTP verification failed:', err);
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !isLoading) {
-      e.preventDefault();
-      handleLogin();
+  const handleResendOtp = async () => {
+    try {
+      const success = await resendOtp();
+      if (success) {
+        // Clear the OTP input to show fresh start
+        setFormData(prev => ({ ...prev, otp: '' }));
+      }
+    } catch (err) {
+      console.error('Failed to resend OTP:', err);
     }
   };
 
-  // Don't render until mounted to prevent hydration mismatch
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500"></div>
-      </div>
-    );
-  }
-
-  // Show loading state during login
-  if (isLoading && isLoggedIn) {
-    return (
-      <div>
-        <NavBar />
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-500 mx-auto mb-4"></div>
-            <p className="text-gray-600 dark:text-gray-300">Redirecting to dashboard...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!selectedRole) {
-    return (
-      <div>
-        <NavBar />
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
-          <div className="w-full max-w-4xl">
-            <div className="text-center mb-12">
-              <h1 className="text-title-lg font-outfit font-semibold text-gray-900 dark:text-white mb-3">
-                Welcome
-              </h1>
-              <p className="text-theme-xl text-gray-600 dark:text-gray-300">
-                Please select your role to continue
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {roles.map((role) => {
-                const IconComponent = role.icon;
-                return (
-                  <div
-                    key={role.id}
-                    onClick={() => handleRoleSelect(role)}
-                    className="bg-white dark:bg-gray-900 rounded-xl shadow-theme-lg hover:shadow-theme-xl transition-all duration-300 cursor-pointer transform hover:scale-[1.02] p-6 border border-gray-200 dark:border-gray-800"
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleRoleSelect(role);
-                      }
-                    }}
-                    aria-label={`Select ${role.title} role`}
-                  >
-                    <div className="text-center">
-                      <div
-                        className={`inline-flex items-center justify-center w-16 h-16 ${role.color} rounded-full mb-4 mx-auto`}
-                      >
-                        <IconComponent className="w-8 h-8 text-white" />
-                      </div>
-                      <h3 className="text-xl font-outfit font-semibold text-gray-900 dark:text-white mb-3">
-                        {role.title}
-                      </h3>
-                      <p className="text-theme-sm text-gray-600 dark:text-gray-400 leading-relaxed">
-                        {role.description}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            <div className="text-center mt-12">
-              <p className="text-theme-sm text-gray-500 dark:text-gray-400">
-                Need help? Contact your school administrator
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (isLoggedIn) {
-    return <Spinner/>
-  }
-
-  const IconComponent = selectedRole.icon;
+  const resetForm = () => {
+    setSelectedRole('');
+    setAdminPosition('');
+    setFormData({ username: '', password: '', otp: '' });
+    setShowPassword(false);
+    resetOtpState();
+    clearError();
+  };
 
   return (
-    <div>
-      <NavBar />
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center p-4">
-        <div className="w-full max-w-md">
-          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-theme-lg p-8 border border-gray-200 dark:border-gray-800">
-            <div className="text-center mb-8">
-              <div
-                className={`inline-flex items-center justify-center w-16 h-16 ${selectedRole.color} rounded-full mb-4`}
-              >
-                <IconComponent className="w-8 h-8 text-white" />
-              </div>
-              <h2 className="text-title-sm font-outfit font-semibold text-gray-900 dark:text-white mb-2">
-                {selectedRole.title} Login
+    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <div className="bg-card rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-border">
+        {/* Header */}
+        <div className="bg-primary px-8 py-6 text-center">
+          <div className="w-16 h-16 bg-primary-foreground rounded-full mx-auto mb-4 flex items-center justify-center">
+            <Settings className="w-8 h-8 text-primary" />
+          </div>
+          <h1 className="text-2xl font-bold text-primary-foreground mb-2">School Management System</h1>
+          <p className="text-primary-foreground/80 text-sm">Please select your role to continue</p>
+        </div>
+
+        <div className="p-8">
+          {!selectedRole ? (
+            /* Role Selection */
+            <div>
+              <h2 className="text-xl font-semibold text-foreground text-center mb-6">
+                Choose Your Role
               </h2>
-              <p className="text-theme-sm text-gray-600 dark:text-gray-400">
-                {selectedRole.description}
-              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {roles.map((role) => {
+                  const IconComponent = role.icon;
+                  return (
+                    <button
+                      key={role.value}
+                      onClick={() => setSelectedRole(role.value)}
+                      className="p-6 border-2 border-border rounded-xl hover:border-primary hover:bg-accent transition-all duration-200 flex flex-col items-center space-y-4 group min-h-[140px] justify-center transform hover:scale-[1.02]"
+                      disabled={isLoading}
+                    >
+                      <div className={`w-14 h-14 ${role.color} rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                        <IconComponent className="w-7 h-7 text-white" />
+                      </div>
+                      <span className="text-base font-medium text-foreground group-hover:text-primary text-center leading-tight">
+                        {role.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-
-            {errorMessage && (
-              <div className="flex items-center text-sm text-red-600 bg-red-100 dark:bg-red-950 border border-red-400 dark:border-red-700 px-4 py-3 rounded mb-4">
-                <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
-                <span>{errorMessage}</span>
-              </div>
-            )}
-
-            <form onSubmit={(e) => { 
-              e.preventDefault(); 
-              if (!isLoading) {
-                handleLogin(); 
-              }
-            }}>
-              <div className="space-y-6">
-                <div>
-                  <label
-                    htmlFor="username"
-                    className="block text-theme-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Username
-                  </label>
-                  <input
-                    type="text"
-                    id="username"
-                    name="username"
-                    value={formData.username}
-                    onChange={handleInputChange}
-                    onKeyDown={handleKeyPress}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
-                    placeholder="Enter your username"
-                    required
-                    autoComplete="username"
-                    disabled={isLoading}
-                    maxLength={100}
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="password"
-                    className="block text-theme-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                  >
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    id="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    onKeyDown={handleKeyPress}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-colors"
-                    placeholder="Enter your password"
-                    required
-                    autoComplete="current-password"
-                    disabled={isLoading}
-                    maxLength={200}
-                  />
-                </div>
-
-                <div className="flex space-x-4">
-                  <button
-                    type="button"
-                    onClick={handleBack}
-                    disabled={isLoading}
-                    className="flex-1 flex items-center justify-center px-4 py-3 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isLoading || !formData.username.trim() || !formData.password.trim()}
-                    className="flex-1 flex items-center justify-center px-4 py-3 bg-brand-500 hover:bg-brand-600 text-white rounded-lg font-medium transition-colors focus:ring-2 focus:ring-brand-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isLoading ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Logging in...
-                      </>
-                    ) : (
-                      <>
-                        <LogIn className="w-4 h-4 mr-2" />
-                        Login
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </form>
-
-            <div className="mt-6 text-center">
+          ) : (
+            /* Login Form */
+            <div>
+              {/* Back Button */}
               <button
-                type="button"
-                className="text-theme-sm text-brand-500 hover:text-brand-600 dark:text-brand-400 dark:hover:text-brand-300 transition-colors bg-transparent border-none cursor-pointer"
-                onClick={() => {
-                  // You can implement forgot password functionality here
-                  console.log('Forgot password clicked');
-                }}
+                onClick={resetForm}
+                className="mb-4 text-primary hover:text-primary/80 text-sm font-medium flex items-center disabled:opacity-50"
                 disabled={isLoading}
               >
-                Forgot your password?
+                ← Back to role selection
+              </button>
+
+              {/* Current Role Display */}
+              <div className="mb-6 p-4 bg-accent rounded-lg border border-border">
+                <p className="text-sm text-foreground font-medium">
+                  Logging in as: <span className="font-bold text-primary">
+                    {roles.find(r => r.value === selectedRole)?.label}
+                  </span>
+                </p>
+              </div>
+
+              {/* Error Message */}
+              {error && (
+                <div className="mb-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+                  <p className="text-sm text-destructive font-medium">{error}</p>
+                </div>
+              )}
+
+              {/* Administrator Position Selection */}
+              {selectedRole === 'administrator' && !adminPosition && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-foreground mb-3">
+                    Select Your Position
+                  </label>
+                  <div className="grid grid-cols-1 gap-2 max-h-60 overflow-y-auto">
+                    {adminPositions.map((position) => (
+                      <button
+                        key={position}
+                        onClick={() => setAdminPosition(position)}
+                        className="text-left p-3 border border-border rounded-lg hover:border-primary hover:bg-accent transition-colors disabled:opacity-50"
+                        disabled={isLoading}
+                      >
+                        <span className="text-sm font-medium text-foreground">
+                          {positionLabels[position]}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Login Form - Show when role is selected and (not administrator or position is selected) */}
+              {(selectedRole !== 'administrator' || adminPosition) && !isAwaitingOtp && (
+                <form onSubmit={handleLogin} className="space-y-6">
+                  {selectedRole === 'administrator' && (
+                    <div className="p-3 bg-accent rounded-lg border border-border">
+                      <p className="text-sm text-foreground">
+                        Position: <span className="font-semibold text-primary">{positionLabels[adminPosition]}</span>
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Username Field */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Username
+                    </label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                      <input
+                        type="text"
+                        name="username"
+                        value={formData.username}
+                        onChange={handleInputChange}
+                        className="w-full pl-10 pr-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent outline-none transition-all bg-background text-foreground disabled:opacity-50"
+                        placeholder="Enter your username"
+                        required
+                        disabled={isLoading}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Password Field */}
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleInputChange}
+                        className="w-full pl-10 pr-12 py-3 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent outline-none transition-all bg-background text-foreground disabled:opacity-50"
+                        placeholder="Enter your password"
+                        required
+                        disabled={isLoading}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                        disabled={isLoading}
+                      >
+                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    type="submit"
+                    className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
+                    disabled={isLoading || !formData.username || !formData.password || (selectedRole === 'administrator' && !adminPosition)}
+                  >
+                    {isLoading ? (
+                      <div className="flex items-center">
+                        <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                        Logging in...
+                      </div>
+                    ) : (
+                      'Login'
+                    )}
+                  </button>
+
+                  {/* Forgot Password */}
+                  <div className="text-center">
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPasswordModal(true)}
+                      className="text-sm text-primary hover:text-primary/80 font-medium disabled:opacity-50"
+                      disabled={isLoading}
+                    >
+                      Forgot your password?
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* OTP Verification Form */}
+              {isAwaitingOtp && (
+                <form onSubmit={handleOtpVerification} className="animate-in fade-in-50 slide-in-from-top-2 duration-300">
+                  <div className="mb-6 p-4 bg-accent rounded-lg border border-border">
+                    <p className="text-sm text-foreground">
+                      <strong>OTP sent to:</strong> {otpContact}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Please check your phone or email for the verification code
+                    </p>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Enter OTP Code
+                      </label>
+                      <div className="relative">
+                        <Shield className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-5 h-5" />
+                        <input
+                          type="text"
+                          name="otp"
+                          value={formData.otp}
+                          onChange={handleInputChange}
+                          className="w-full pl-10 pr-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent outline-none transition-all bg-background text-foreground disabled:opacity-50 text-center text-lg tracking-widest"
+                          placeholder="000000"
+                          maxLength={6}
+                          required
+                          disabled={isLoading}
+                          autoFocus
+                        />
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none flex items-center justify-center"
+                      disabled={isLoading || !formData.otp || formData.otp.length !== 6}
+                    >
+                      {isLoading ? (
+                        <div className="flex items-center">
+                          <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                          Verifying OTP...
+                        </div>
+                      ) : (
+                        'Verify OTP & Login'
+                      )}
+                    </button>
+
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        className="text-sm text-primary hover:text-primary/80 font-medium disabled:opacity-50 flex items-center justify-center mx-auto"
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <div className="flex items-center">
+                            <Loader2 className="w-4 h-4 animate-spin mr-1" />
+                            Sending...
+                          </div>
+                        ) : (
+                          'Resend OTP'
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="bg-muted px-8 py-4 text-center border-t border-border">
+          <p className="text-xs text-muted-foreground">
+            © 2024 School Management System. All rights reserved.
+          </p>
+        </div>
+      </div>
+
+      {/* Forgot Password Modal */}
+      {showForgotPasswordModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-in fade-in-0 duration-300">
+          <div className="bg-card rounded-2xl shadow-2xl w-full max-w-md p-8 relative border border-border animate-in zoom-in-95 duration-300">
+            <button
+              onClick={() => setShowForgotPasswordModal(false)}
+              className="absolute top-4 right-4 text-muted-foreground hover:text-foreground text-2xl font-bold"
+            >
+              ×
+            </button>
+            
+            <div className="text-center">
+              <div className="w-16 h-16 bg-secondary rounded-full mx-auto mb-4 flex items-center justify-center">
+                <Lock className="w-8 h-8 text-secondary-foreground" />
+              </div>
+              
+              <h3 className="text-xl font-bold text-foreground mb-4">
+                Password Reset Required
+              </h3>
+              
+              <p className="text-muted-foreground mb-6 leading-relaxed">
+                To reset your password, please contact the school administrator. 
+                They will be able to help you regain access to your account.
+              </p>
+              
+              <div className="bg-accent border border-border rounded-lg p-4 mb-6">
+                <p className="text-sm text-foreground">
+                  <strong>Contact Information:</strong><br />
+                  Email: admin@school.edu<br />
+                  Phone: (555) 123-4567<br />
+                  Office Hours: Mon-Fri, 8:00 AM - 5:00 PM
+                </p>
+              </div>
+              
+              <button
+                onClick={() => setShowForgotPasswordModal(false)}
+                className="w-full bg-primary text-primary-foreground py-3 px-4 rounded-lg font-medium hover:bg-primary/90 transition-colors"
+              >
+                Got it
               </button>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
-export default SchoolLoginPage;
+export default LoginPage;

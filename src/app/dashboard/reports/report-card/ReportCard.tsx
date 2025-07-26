@@ -1,6 +1,6 @@
 "use client"
 import React, {useEffect, useState} from 'react';
-import { Document, Page, PDFViewer, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
+import { Document, Page, PDFViewer, Text, View, Image } from '@react-pdf/renderer';
 import axios from 'axios';
 import styles from './styles';
 
@@ -20,7 +20,8 @@ function gradeStyle(score: string | number) {
   }
 }
 
-function Report() {
+
+function ReportCard({ids}) {
   const [student, setStudent] = useState<any>(null);
   const [subjects, setSubjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,11 +31,12 @@ function Report() {
     const fetchStudentData = async () => {
       try {
         const reportType = "reportcard";
-        const id = "UCA2025019";
+
+        ids ??= ["UCA2025019"];
         const role = "student";
 
         const response = await axios.get("/api/reports", { 
-          params: { id, reportType, role } 
+          params: { ids, reportType, role } 
         });
         
         if (response.data) {
@@ -423,4 +425,4 @@ function Report() {
   );
 }
 
-export default Report;
+export default ReportCard;

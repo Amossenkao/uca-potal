@@ -3,9 +3,9 @@
 import { useSidebar } from "@/context/SidebarContext";
 import AppHeader from "@/layout/AppHeader";
 import AppSidebar from "@/layout/AppSidebar";
-import Backdrop from "@/layout/Backdrop";
-import React from "react";
-import { useUserData } from "@/context/UserContext";
+import React, { useState, useEffect } from "react";
+import useAuth from "@/store/useAuth";
+import { PageLoading } from "@/components/loading";
 
 export default function AdminLayout({
   children,
@@ -13,6 +13,18 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const { isExpanded, isHovered, isMobileOpen } = useSidebar();
+  const { isLoggedIn, user, isLoading, loadFromStorage } = useAuth();
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Load auth state from localStorage on mount
+  useEffect(() => {
+    const initializeAuth = async () => {
+      loadFromStorage();
+      setIsInitializing(false);
+    };
+    
+    initializeAuth();
+  }, [loadFromStorage]);
 
   // Dynamic class for main content margin based on sidebar state
   const mainContentMargin = isMobileOpen
@@ -20,20 +32,32 @@ export default function AdminLayout({
     : isExpanded || isHovered
     ? "lg:ml-[290px]"
     : "lg:ml-[90px]";
-  const user = useUserData()
+
+  // Check if we're still loading or initializing
+  const isLoadingState = isInitializing || isLoading || !isLoggedIn || !user;
+
   return (
     <div className="min-h-screen xl:flex">
       {/* Sidebar and Backdrop */}
       <AppSidebar />
-      <Backdrop />
+      
       {/* Main Content Area */}
       <div
-        className={`flex-1 transition-all  duration-300 ease-in-out ${mainContentMargin}`}
+        className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}
       >
-        {/* Header */}
         <AppHeader />
-        {/* Page Content */}
-        <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">{children}</div>
+
+        <div className="p-4 mx-auto max-w-(--breakpoint-2xl) md:p-6">
+          {isLoadingState ? (
+            // Show loading spinner in main content area while maintaining layout
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <PageLoading />
+            </div>
+          ) : (
+            // Show actual content when loading is complete
+            children
+          )}
+        </div>
       </div>
     </div>
   );

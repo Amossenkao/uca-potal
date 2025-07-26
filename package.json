@@ -41,6 +41,7 @@
     "cookie": "^1.0.2",
     "daisyui": "^5.0.46",
     "flatpickr": "^4.6.13",
+    "jose": "^6.0.12",
     "jsonwebtoken": "^9.0.2",
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",

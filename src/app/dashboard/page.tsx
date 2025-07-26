@@ -11,40 +11,18 @@ import {
   Users,
   BookOpen,
   CalendarDays,
-  AlertCircle,
   CheckCircle,
   Clock,
   BarChart3,
   TrendingUp,
   Activity,
-  PieChart,
   RefreshCw,
   Check,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import useAuthStore from "@/store/useAuthStore"
-import { useRouter } from "next/navigation";
-
 export default function Dashboard() {
-  const router = useRouter()
-  
-  const { isLoggedIn, isLoading } = useAuthStore();
-
-  useEffect(() => {
-    if (!isLoading && !isLoggedIn) {
-      router.replace("/login");
-    }
-  }, [isLoggedIn, isLoading, router]);
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!isLoggedIn) {
-    return null;
-  }
 
   return (
     <div className="space-y-6">

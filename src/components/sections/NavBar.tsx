@@ -33,7 +33,7 @@ import {
   Info
 } from "lucide-react"
 import Logo from "../Logo";
-import useAuthStore from "@/store/useAuthStore"; // Fixed import path
+import useAuthStore from "@/store/useAuth"; // Fixed import path
 
 export default function NavBar() {
   const path = usePathname();
