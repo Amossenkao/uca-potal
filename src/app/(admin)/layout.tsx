@@ -1,9 +1,9 @@
 "use client";
 
 import { useSidebar } from "@/context/SidebarContext";
-import AppHeader from "@/layout/AppHeader";
-import AppSidebar from "@/layout/AppSidebar";
-import Backdrop from "@/layout/Backdrop";
+import AppHeader from "@/app/dashboard/layout/AppHeader";
+import AppSidebar from "@/app/dashboard/layout/AppSidebar";
+import Backdrop from "@/app/dashboard/layout/Backdrop";
 import React from "react";
 import { useUserData } from "@/context/UserContext";
 

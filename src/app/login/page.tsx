@@ -18,7 +18,6 @@ const LoginPage = () => {
     isLoggedIn, 
     user, 
     error,
-    sessionId,
     isAwaitingOtp,
     otpContact,
     login,
@@ -26,7 +25,7 @@ const LoginPage = () => {
     resendOtp,
     clearError,
     resetOtpState,
-    loadFromStorage // Make sure this is available from your store
+    loadFromStorage
   } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -35,15 +34,12 @@ const LoginPage = () => {
     otp: ''
   });
 
-  // Load authentication state from localStorage on mount
   useEffect(() => {
     loadFromStorage();
     setIsInitializing(false);
   }, [loadFromStorage]);
 
-  // Redirect if already logged in
   useEffect(() => {
-    // Only redirect after we've checked localStorage and we have a user
     if (!isInitializing && !isLoading && user && isLoggedIn) {
       router.push("/dashboard");
     }
@@ -78,16 +74,14 @@ const LoginPage = () => {
   ];
 
   const positionLabels = {
-    'principal': 'Principal',
-    'vice_principal': 'Vice Principal',
-    'head_of_department': 'Head of Department',
-    'academic_coordinator': 'Academic Coordinator',
-    'discipline_coordinator': 'Discipline Coordinator',
-    'registrar': 'Registrar',
-    'supervisor': 'Supervisor',
     'proprietor': 'Proprietor',
+    'principal': 'Principal',
+    'supervisor': 'Supervisor',
+    'vpa': 'Vice Principal for Academic Affairs',
+    'dean': 'Dean of Students',
+    'vpi': 'Vicp Principal Instruction',
     'secretary': 'Secretary',
-    'dean_of_students': 'Dean of Students',
+    'registrar': 'Registrar',
     'cashier': 'Cashier'
   };
 
@@ -128,10 +122,9 @@ const LoginPage = () => {
         // Login successful, redirect will happen via useEffect
         console.log('Login successful, user:', user);
       }
-      // If not successful but no error, it means OTP is required for admin
-      // The UI will automatically show OTP input based on isAwaitingOtp state
+
     } catch (err) {
-      console.error('Login failed:', err);
+      console.error('Invalid username or password', err);
     }
   };
 
@@ -182,10 +175,10 @@ const LoginPage = () => {
       <div className="bg-card rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-border">
         {/* Header */}
         <div className="bg-primary px-8 py-6 text-center">
-          <div className="w-16 h-16 bg-primary-foreground rounded-full mx-auto mb-4 flex items-center justify-center">
-            <Settings className="w-8 h-8 text-primary" />
+          <div className="w-30 h-30   mx-auto mb-4 flex items-center justify-center">
+            <img src="https://res.cloudinary.com/dcalueltd/image/upload/v1753484515/uca_logo2_kqlgdl.png" alt="Upstairs Logo" />
           </div>
-          <h1 className="text-2xl font-bold text-primary-foreground mb-2">School Management System</h1>
+          <h1 className="text-2xl font-bold text-primary-foreground mb-2">Upstairs e-Potal System</h1>
           <p className="text-primary-foreground/80 text-sm">Please select your role to continue</p>
         </div>
 
@@ -281,7 +274,7 @@ const LoginPage = () => {
 
                   {/* Username Field */}
                   <div>
-                    <label className="block text-sm font-medium text-foreground mb-2">
+                    <label className="block text-sm font-medium text-foreground mb-2 ">
                       Username
                     </label>
                     <div className="relative">
@@ -292,7 +285,8 @@ const LoginPage = () => {
                         value={formData.username}
                         onChange={handleInputChange}
                         className="w-full pl-10 pr-4 py-3 border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent outline-none transition-all bg-background text-foreground disabled:opacity-50"
-                        placeholder="Enter your username"
+                          placeholder="Enter your username"
+                          autoFocus
                         required
                         disabled={isLoading}
                       />
@@ -466,9 +460,10 @@ const LoginPage = () => {
               <div className="bg-accent border border-border rounded-lg p-4 mb-6">
                 <p className="text-sm text-foreground">
                   <strong>Contact Information:</strong><br />
-                  Email: admin@school.edu<br />
-                  Phone: (555) 123-4567<br />
-                  Office Hours: Mon-Fri, 8:00 AM - 5:00 PM
+                  Name: Amos Senkao <br />
+                  Email: senkao.a@outlook.com<br />
+                  Phone: 0776 - 949463<br />
+                  Office: Upstairs Campus
                 </p>
               </div>
               

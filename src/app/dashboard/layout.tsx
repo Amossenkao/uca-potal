@@ -1,8 +1,8 @@
 "use client";
 
 import { useSidebar } from "@/context/SidebarContext";
-import AppHeader from "@/layout/AppHeader";
-import AppSidebar from "@/layout/AppSidebar";
+import AppHeader from "@/app/dashboard/layout/AppHeader";
+import AppSidebar from "@/app/dashboard/layout/AppSidebar";
 import React, { useState, useEffect } from "react";
 import useAuth from "@/store/useAuth";
 import { PageLoading } from "@/components/loading";
@@ -28,14 +28,12 @@ export default function AdminLayout({
     initializeAuth();
   }, [loadFromStorage]);
 
-  // Redirect to login if not logged in and not loading
   useEffect(() => {
     if (!isInitializing && !isLoading && (!isLoggedIn || !user)) {
       router.push("/login");
     }
   }, [isInitializing, isLoading, isLoggedIn, user, router]);
 
-  // Still initializing or redirecting
   if (isInitializing || isLoading || (!isLoggedIn || !user)) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -52,10 +50,8 @@ export default function AdminLayout({
 
   return (
     <div className="min-h-screen xl:flex">
-      {/* Sidebar */}
       <AppSidebar />
 
-      {/* Main Content */}
       <div
         className={`flex-1 transition-all duration-300 ease-in-out ${mainContentMargin}`}
       >

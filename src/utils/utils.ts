@@ -1,14 +1,14 @@
-import { NAV_ITEMS } from "./navItems";
-import { NavItem } from "@/types";
+import { NAV_ITEMS, DEFAULT_NAV_ITEMS } from "./navItems";
 
+export function getNavItems(role: string) {
+  // Use default nav items when role is 'default' or during loading states
+  const sourceItems = role === 'default' ? DEFAULT_NAV_ITEMS : NAV_ITEMS;
+  
+  return sourceItems
+    .filter((navItem) => {
+      if (navItem.excludeRoles?.includes(role)) return false;
 
-
-export function getNavItems(role: string): NavItem[] {
-  return NAV_ITEMS
-    .filter((NAV_ITEMS) => {
-      if (NAV_ITEMS.excludeRoles?.includes(role)) return false;
-
-      if (NAV_ITEMS.roles && !NAV_ITEMS.roles.includes(role)) return false;
+      if (navItem.roles && !navItem.roles.includes(role)) return false;
 
       return true;
     })
@@ -32,7 +32,5 @@ export function getNavItems(role: string): NavItem[] {
 
       return item;
     })
-    .filter(Boolean) as NavItem[];
+    .filter(Boolean);
 }
-
-export function getUserDetails(id: string){}

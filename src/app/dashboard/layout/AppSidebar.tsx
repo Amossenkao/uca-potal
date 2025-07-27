@@ -1,25 +1,53 @@
 "use client";
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useSidebar } from "../context/SidebarContext";
-import type { NavItem } from "@/types";
+import { useSidebar } from "../../../context/SidebarContext";
 import { getNavItems } from "@/utils/utils";
 import { ChevronDown } from "lucide-react";
-import { useUserData } from "@/context/UserContext";
+import useAuth from "@/store/useAuth";
 import Logo from "@/components/Logo";
+import { useRouter } from "next/navigation";
+
+const NavigationSkeleton: React.FC<{ isExpanded: boolean; isHovered: boolean; isMobileOpen: boolean }> = ({ 
+  isExpanded, 
+  isHovered, 
+  isMobileOpen 
+}) => (
+  <ul className="flex flex-col gap-4">
+    {[1, 2, 3, 4, 5].map((index) => (
+      <li key={index} className="animate-pulse">
+        <div className={`menu-item ${!isExpanded && !isHovered ? "lg:justify-center" : "lg:justify-start"}`}>
+          <div className="w-5 h-5 bg-gray-300 dark:bg-gray-600 rounded"></div>
+          {(isExpanded || isHovered || isMobileOpen) && (
+            <div className="ml-3 h-4 bg-gray-300 dark:bg-gray-600 rounded flex-1 max-w-[120px]"></div>
+          )}
+        </div>
+      </li>
+    ))}
+  </ul>
+);
 
 const AppSidebar: React.FC = () => {
-  const user = useUserData();
+  const router = useRouter()
+  const { isLoggedIn, user, isLoading, loadFromStorage } = useAuth();
+  const [isInitializing, setIsInitializing] = useState(true);
   
-  if (!user) {
-    return <p>Loading</p>
-  }
+  useEffect(() => {
+    const initializeAuth = async () => {
+      loadFromStorage();
+      setIsInitializing(false);
+    };
 
-const role = user.role;
+    initializeAuth();
+  }, [loadFromStorage]);
 
-const navItems = getNavItems(role)
+  useEffect(() => {
+    if (!isInitializing && !isLoading && (!isLoggedIn || !user)) {
+      router.push("/login");
+    }
+  }, [isInitializing, isLoading, isLoggedIn, user, router]);
+
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const pathname = usePathname();
   const [openSubmenu, setOpenSubmenu] = useState<{ type: "main"; index: number } | null>(null);
@@ -32,15 +60,26 @@ const navItems = getNavItems(role)
     setOpenSubmenu((prev) => (prev?.index === index ? null : { type: "main", index }));
   };
 
+  // Only get navItems when not loading
+  const navItems = (isInitializing || isLoading || !isLoggedIn || !user) 
+    ? [] 
+    : getNavItems(user.role);
+
+  const role = (isInitializing || isLoading || !isLoggedIn || !user) 
+    ? 'default' 
+    : user.role;
+
   useEffect(() => {
-    navItems.forEach((nav, index) => {
-      nav.subItems?.forEach((subItem) => {
-        if (isActive(subItem.href)) {
-          setOpenSubmenu({ type: "main", index });
-        }
+    if (navItems.length > 0) {
+      navItems.forEach((nav, index) => {
+        nav.subItems?.forEach((subItem) => {
+          if (isActive(subItem.href)) {
+            setOpenSubmenu({ type: "main", index });
+          }
+        });
       });
-    });
-  }, [pathname, isActive]);
+    }
+  }, [pathname, isActive, navItems]);
 
   useEffect(() => {
     if (openSubmenu) {
@@ -161,8 +200,6 @@ const renderMenuItems = (items: NavItem[]) => (
   </ul>
 );
 
-
-
   return (
     <aside
       className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 ${
@@ -182,7 +219,15 @@ const renderMenuItems = (items: NavItem[]) => (
       </div>
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <nav className="mb-6">
-          {renderMenuItems(navItems)}
+          {(isInitializing || isLoading) ? (
+            <NavigationSkeleton 
+              isExpanded={isExpanded} 
+              isHovered={isHovered} 
+              isMobileOpen={isMobileOpen} 
+            />
+          ) : (
+            renderMenuItems(navItems)
+          )}
         </nav>
       </div>
     </aside>

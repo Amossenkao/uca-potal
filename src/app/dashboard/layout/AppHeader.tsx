@@ -1,10 +1,8 @@
 "use client";
 import { ThemeToggleButton } from "@/components/common/ThemeToggleButton";
-// import NotificationDropdown from "@/components/header/NotificationDropdown";
 import UserDropdown from "@/components/header/UserDropdown";
 import Logo from "@/components/Logo";
 import { useSidebar } from "@/context/SidebarContext";
-import Link from "next/link";
 import React, { useState ,useEffect,useRef} from "react";
 
 const AppHeader: React.FC = () => {

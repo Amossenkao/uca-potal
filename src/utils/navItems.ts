@@ -1,4 +1,3 @@
-import { NavItem } from "@/types";
 
 import {
   MessageCircle,
@@ -21,20 +20,22 @@ import {
   School,
 } from "lucide-react";
 
-export const NAV_ITEMS: NavItem[] = [
+
+export const NAV_ITEMS = [
   {
     name: "Dashboard",
     icon: LayoutDashboard,
     href: "/",
   },
+
   {
     name: "Users",
     icon: Users,
     roles: ["vpi"],
     subItems: [
-      { name: "Students", href: "/students", icon: GraduationCap},
-      { name: "Teachers", href: "/teachers", icon: BookOpen},
-      { name: "Administrators", href: "/administrators", icon: Shield},
+      { name: "Student", href: "/Student", icon: GraduationCap},
+      { name: "Teacher", href: "/teachers", icon: BookOpen},
+      { name: "Administrator", href: "/administrators", icon: Shield},
     ],
   },
 
@@ -43,7 +44,7 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Users,
     roles: ["registrar"],
     subItems: [
-      { name: "View Applications", href: "/students", icon: GraduationCap},
+      { name: "View Applications", href: "/Student", icon: GraduationCap},
       { name: "Admit New Student", href: "/teachers", icon: BookOpen},
     ],
   },
@@ -51,24 +52,26 @@ export const NAV_ITEMS: NavItem[] = [
       {
     name: "Financial Reports",
     icon: Users,
-        roles: ["casher"],
+     roles: ["administration"],
+    positions: ["cashir"], 
     href: "/financial-reports"
   },
 
     {
     name: "Fees Payment",
       icon: Wallet,
-    roles: ["student", "parent"],
+    roles: ["student"],
     subItems: [
-      { name: "Pay tuition fees", href: "/grades/add", icon: FilePen },
-      { name: "Pay Other Fees", href: "/grades/submit", icon: FilePen },
-      { name: "Payment Receipts", href: "/grades/view", icon: FileText },
+      { name: "Pay fees", href: "/grades/add", icon: FilePen },
+      { name: "View Financial Profile", href: "/grades/submit", icon: FilePen },
+
     ],
   },
+
   {
     name: "Grading",
     icon: CheckSquare,
-    roles: ['vpi', 'teacher', 'student', 'parent'],
+    roles: ['vpi', 'teacher', 'student', ],
     subItems: [
       { name: "Add Grades", href: "/grades/add", icon: FilePen, roles: ['teacher'] },
       { name: "Submit Grades", href: "/grades/submit", icon: FilePen, roles: ['teacher'] },
@@ -104,7 +107,7 @@ export const NAV_ITEMS: NavItem[] = [
     roles: ["registrar"],
     subItems: [
       { name: "Manage Scholarships", href: "/scholarships/manage", icon: Medal },
-      { name: "Ward Students", href: "/scholarships/recipients", icon: Users },
+      { name: "Ward Student", href: "/scholarships/recipients", icon: Users },
     ],
   },
   {
@@ -120,7 +123,7 @@ export const NAV_ITEMS: NavItem[] = [
   {
     name: "Salary",
     icon: Wallet,
-    excludeRoles: ["student", "parent", "supervisor", "proprietor"],
+    excludeRoles: ["student", "supervisor", "proprietor"],
     subItems: [
       { name: "Request Salary Advance", href: "/salary/advance", icon: Wallet },
       { name: "Sign for Salary", href: "/salary/sign", icon: FilePen },
@@ -149,10 +152,10 @@ export const NAV_ITEMS: NavItem[] = [
   },
 
   {
-    name: "Students",
+    name: "Student",
     icon: Wallet,
       roles: ['proprietor'],
-    href: "/students"
+    href: "/Student"
   },
   
   
@@ -169,7 +172,6 @@ export const NAV_ITEMS: NavItem[] = [
   {
     name: "Academic Resources",
     icon: Library,
-    excludeRoles: ['parent'],
     subItems: [
       { name: "View Resources", href: "/resources/add", icon: FilePen },
       { name: "Add a Resource", href: "/resources/add", icon: FilePen, roles: ["vpi", "vpa", "teacher"]},

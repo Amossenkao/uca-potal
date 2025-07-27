@@ -20,7 +20,10 @@ import {
   Award,
   Clock,
   DollarSign,
-  Briefcase
+  Briefcase,
+  AlertCircle,
+  CheckCircle,
+  Loader2
 } from 'lucide-react';
 
 const UserCreationForm = () => {
@@ -29,6 +32,8 @@ const UserCreationForm = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
 
   // Form data state matching your schema
   const [formData, setFormData] = useState({
@@ -51,7 +56,7 @@ const UserCreationForm = () => {
     role: '',
     
     // Student specific
-    currentClass: '', // This maps to 'currentClass' in schema
+    grade: '', // This maps to 'currentClass' in schema
     status: 'enrolled',
     guardian: {
       firstName: '',
@@ -84,27 +89,18 @@ const UserCreationForm = () => {
       type: 'student',
       label: 'Student',
       icon: GraduationCap,
-      color: 'from-emerald-500 to-teal-600',
-      bgColor: 'bg-emerald-50',
-      borderColor: 'border-emerald-200',
       description: 'Enroll a new student with academic tracking'
     },
     {
       type: 'teacher',
       label: 'Teacher',
       icon: BookOpen,
-      color: 'from-blue-500 to-indigo-600',
-      bgColor: 'bg-blue-50',
-      borderColor: 'border-blue-200',
       description: 'Add a new teacher with subject assignments'
     },
     {
       type: 'administrator',
       label: 'Administrator',
       icon: Shield,
-      color: 'from-purple-500 to-violet-600',
-      bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-200',
       description: 'Create a new administrative staff member'
     }
   ];
@@ -166,6 +162,77 @@ const UserCreationForm = () => {
     { value: 'dropped', label: 'Dropped' }
   ];
 
+  // Backend validation functions
+  const validateUsername = async (username) => {
+    if (!username) return { isValid: false, message: 'Username is required' };
+    
+    try {
+      const response = await fetch('/api/users/validate-username', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username })
+      });
+      
+      const result = await response.json();
+      return { isValid: response.ok, message: result.message };
+    } catch (error) {
+      return { isValid: false, message: 'Error validating username' };
+    }
+  };
+
+  const validateTeacherSubjects = async (subjects) => {
+    if (!subjects || subjects.length === 0) {
+      return { isValid: false, message: 'At least one subject is required' };
+    }
+    
+    try {
+      const response = await fetch('/api/users/validate-teacher-subjects', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subjects })
+      });
+      
+      const result = await response.json();
+      return { isValid: response.ok, message: result.message, conflicts: result.conflicts };
+    } catch (error) {
+      return { isValid: false, message: 'Error validating teacher subjects' };
+    }
+  };
+
+  const validateSponsorClass = async (sponsorClass) => {
+    if (!sponsorClass) return { isValid: true };
+    
+    try {
+      const response = await fetch('/api/users/validate-sponsor-class', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sponsorClass })
+      });
+      
+      const result = await response.json();
+      return { isValid: response.ok, message: result.message };
+    } catch (error) {
+      return { isValid: false, message: 'Error validating sponsor class' };
+    }
+  };
+
+  const validateAdminPosition = async (position) => {
+    if (!position) return { isValid: false, message: 'Position is required' };
+    
+    try {
+      const response = await fetch('/api/users/validate-admin-position', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ position })
+      });
+      
+      const result = await response.json();
+      return { isValid: response.ok, message: result.message };
+    } catch (error) {
+      return { isValid: false, message: 'Error validating position' };
+    }
+  };
+
   // Generate unique IDs
   const generateUniqueId = (type) => {
     const timestamp = Date.now().toString(36);
@@ -205,6 +272,11 @@ const UserCreationForm = () => {
         [field]: value
       }));
     }
+    
+    // Clear validation errors when field changes
+    if (validationErrors[field]) {
+      setValidationErrors(prev => ({ ...prev, [field]: null }));
+    }
   };
 
   const handleSubjectChange = (subject, level, classes = []) => {
@@ -222,6 +294,22 @@ const UserCreationForm = () => {
         newSubjects.push({ subject, level, classes });
       }
       
+      return { ...prev, subjects: newSubjects };
+    });
+    
+    // Clear validation errors when subjects change
+    if (validationErrors.subjects) {
+      setValidationErrors(prev => ({ ...prev, subjects: null }));
+    }
+  };
+
+  const handleGradeSelection = (subjectIndex, selectedGrades) => {
+    setFormData(prev => {
+      const newSubjects = [...prev.subjects];
+      newSubjects[subjectIndex] = {
+        ...newSubjects[subjectIndex],
+        classes: selectedGrades
+      };
       return { ...prev, subjects: newSubjects };
     });
   };
@@ -257,7 +345,7 @@ const UserCreationForm = () => {
       
       case 2: // Role-specific info
         if (selectedUserType === 'student') {
-          return formData.currentClass;
+          return formData.grade;
         } else if (selectedUserType === 'teacher') {
           return formData.subjects.length > 0;
         } else if (selectedUserType === 'administrator') {
@@ -281,8 +369,93 @@ const UserCreationForm = () => {
     }
   };
 
-  const nextStep = () => {
-    if (validateCurrentStep() && currentStep < steps.length - 1) {
+  const performBackendValidation = async () => {
+    setIsValidating(true);
+    setValidationErrors({});
+    
+    try {
+      const validationPromises = [];
+      
+      // Always validate username
+      if (formData.username) {
+        validationPromises.push(
+          validateUsername(formData.username).then(result => ({
+            field: 'username',
+            ...result
+          }))
+        );
+      }
+      
+      // Role-specific validations
+      if (selectedUserType === 'teacher') {
+        if (formData.subjects.length > 0) {
+          validationPromises.push(
+            validateTeacherSubjects(formData.subjects).then(result => ({
+              field: 'subjects',
+              ...result
+            }))
+          );
+        }
+        
+        if (formData.isSponsor && formData.sponsorClass) {
+          validationPromises.push(
+            validateSponsorClass(formData.sponsorClass).then(result => ({
+              field: 'sponsorClass',
+              ...result
+            }))
+          );
+        }
+      } else if (selectedUserType === 'administrator') {
+        if (formData.position) {
+          validationPromises.push(
+            validateAdminPosition(formData.position).then(result => ({
+              field: 'position',
+              ...result
+            }))
+          );
+        }
+      }
+      
+      const results = await Promise.all(validationPromises);
+      const errors = {};
+      let hasErrors = false;
+      
+      results.forEach(result => {
+        if (!result.isValid) {
+          errors[result.field] = result.message;
+          hasErrors = true;
+        }
+      });
+      
+      setValidationErrors(errors);
+      return !hasErrors;
+      
+    } catch (error) {
+      console.error('Validation error:', error);
+      setValidationErrors({ general: 'Validation failed. Please try again.' });
+      return false;
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const nextStep = async () => {
+    if (!validateCurrentStep()) return;
+    
+    // Perform backend validation on specific steps
+    const needsValidation = (
+      (currentStep === 4) || // Account setup (username)
+      (currentStep === 2 && selectedUserType === 'teacher') || // Teacher subjects
+      (currentStep === 2 && selectedUserType === 'administrator') || // Admin position
+      (currentStep === 3 && selectedUserType === 'teacher' && formData.isSponsor) // Teacher sponsor
+    );
+    
+    if (needsValidation) {
+      const isValid = await performBackendValidation();
+      if (!isValid) return;
+    }
+    
+    if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     }
   };
@@ -290,11 +463,16 @@ const UserCreationForm = () => {
   const prevStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
+      setValidationErrors({}); // Clear validation errors when going back
     }
   };
 
   const handleSubmit = async () => {
     if (!validateCurrentStep()) return;
+
+    // Final validation before submit
+    const isValid = await performBackendValidation();
+    if (!isValid) return;
 
     setIsSubmitting(true);
     
@@ -324,7 +502,7 @@ const UserCreationForm = () => {
         // Role-specific fields
         ...(selectedUserType === 'student' && {
           studentId: roleSpecificId,
-          currentClass: formData.currentClass, // Schema uses currentClass, not currentClass
+          currentClass: formData.grade,
           status: formData.status,
           guardian: {
             firstName: formData.guardian.firstName,
@@ -334,7 +512,7 @@ const UserCreationForm = () => {
             phone: formData.guardian.phone,
             address: formData.guardian.address,
           },
-          academicRecords: [] // Initialize empty
+          academicRecords: []
         }),
         
         ...(selectedUserType === 'teacher' && {
@@ -351,7 +529,7 @@ const UserCreationForm = () => {
           experience: parseInt(formData.experience) || 0,
           salary: formData.salary ? parseFloat(formData.salary) : undefined,
           employmentStatus: formData.employmentStatus,
-          gradeBooks: [] // Initialize empty
+          gradeBooks: []
         }),
         
         ...(selectedUserType === 'administrator' && {
@@ -390,13 +568,14 @@ const UserCreationForm = () => {
       setFormData({
         firstName: '', middleName: '', lastName: '', gender: '', username: '', password: '', confirmPassword: '',
         nickName: '', dateOfBirth: '', phone: '', email: '', address: '', bio: '', role: '',
-        currentClass: '', status: 'enrolled', subjects: [], isSponsor: false, sponsorClass: '', department: '',
+        grade: '', status: 'enrolled', subjects: [], isSponsor: false, sponsorClass: '', department: '',
         qualification: "Bachelor's Degree", experience: 0, salary: '', employmentStatus: 'active',
         position: '', permissions: [], reportsTo: '', supervises: [],
         guardian: { firstName: '', middleName: '', lastName: '', email: '', phone: '', address: '' }
       });
       setSelectedUserType('');
       setCurrentStep(0);
+      setValidationErrors({});
       
     } catch (error) {
       console.error('Error creating user:', error);
@@ -406,10 +585,21 @@ const UserCreationForm = () => {
     }
   };
 
+  const renderValidationError = (field) => {
+    if (!validationErrors[field]) return null;
+    
+    return (
+      <div className="flex items-center space-x-2 mt-2 text-red-600">
+        <AlertCircle className="w-4 h-4" />
+        <span className="text-sm">{validationErrors[field]}</span>
+      </div>
+    );
+  };
+
   const renderUserTypeSelection = () => (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-3">
+        <h2 className="text-3xl font-bold text-gray-900 mb-3">
           Select User Type
         </h2>
         <p className="text-gray-600 text-lg">Choose the type of user you want to add to the system</p>
@@ -427,11 +617,14 @@ const UserCreationForm = () => {
               }}
               className={`group relative p-8 border-2 rounded-2xl transition-all duration-300 flex flex-col items-center space-y-4 min-h-[240px] justify-center transform hover:scale-[1.02] hover:shadow-xl ${
                 selectedUserType === type.type
-                  ? `${type.borderColor} ${type.bgColor} shadow-lg`
+                  ? 'border-blue-500 bg-blue-50 shadow-lg'
                   : 'border-gray-200 hover:border-gray-300 bg-white hover:bg-gray-50'
               }`}
             >
-              <div className={`w-20 h-20 bg-gradient-to-br ${type.color} rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg`}>
+              <div className={`w-20 h-20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg ${
+                type.type === 'student' ? 'bg-emerald-500' :
+                type.type === 'teacher' ? 'bg-blue-500' : 'bg-purple-500'
+              }`}>
                 <IconComponent className="w-10 h-10 text-white" />
               </div>
               <div className="text-center">
@@ -455,7 +648,7 @@ const UserCreationForm = () => {
   const renderPersonalInfo = () => (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-3">
+        <h2 className="text-3xl font-bold text-gray-900 mb-3">
           Personal Information
         </h2>
         <p className="text-gray-600 text-lg">Enter the user's personal details</p>
@@ -617,7 +810,7 @@ const UserCreationForm = () => {
   const renderStudentInfo = () => (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-3">
+        <h2 className="text-3xl font-bold text-gray-900 mb-3">
           Academic Information
         </h2>
         <p className="text-gray-600 text-lg">Enter the student's academic details</p>
@@ -626,17 +819,17 @@ const UserCreationForm = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Grade/Class *
+            Current Grade/Class *
           </label>
           <select
-            value={formData.currentClass}
-            onChange={(e) => handleInputChange('currentClass', e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+            value={formData.grade}
+            onChange={(e) => handleInputChange('grade', e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
             required
           >
             <option value="">Select Grade</option>
-            {grades.map((currentClass) => (
-              <option key={currentClass} value={currentClass}>{currentClass}</option>
+            {grades.map((grade) => (
+              <option key={grade} value={grade}>{grade}</option>
             ))}
           </select>
         </div>
@@ -648,7 +841,7 @@ const UserCreationForm = () => {
           <select
             value={formData.status}
             onChange={(e) => handleInputChange('status', e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
           >
             {studentStatuses.map((status) => (
               <option key={status.value} value={status.value}>{status.label}</option>
@@ -662,104 +855,129 @@ const UserCreationForm = () => {
   const renderTeacherInfo = () => (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3">
+        <h2 className="text-3xl font-bold text-gray-900 mb-3">
           Teaching Information
         </h2>
-        <p className="text-gray-600 text-lg">Enter the teacher's subject and class details</p>
+        <p className="text-gray-600 text-lg">Enter the teacher's subject assignments</p>
       </div>
 
       <div className="space-y-6">
         <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-4">
-            Subjects Teaching *
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            Subjects & Grade Levels *
           </label>
           <div className="space-y-4">
-            {formData.subjects.map((subjectObj, index) => (
-              <div key={index} className="flex gap-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                <select
-                  value={subjectObj.subject}
-                  onChange={(e) => {
-                    const newSubjects = [...formData.subjects];
-                    newSubjects[index] = { ...subjectObj, subject: e.target.value };
-                    setFormData(prev => ({ ...prev, subjects: newSubjects }));
-                  }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Select Subject</option>
-                  {subjects.map((subject) => (
-                    <option key={subject} value={subject}>{subject}</option>
-                  ))}
-                </select>
-                <select
-                  value={subjectObj.level}
-                  onChange={(e) => {
-                    const newSubjects = [...formData.subjects];
-                    newSubjects[index] = { ...subjectObj, level: e.target.value };
-                    setFormData(prev => ({ ...prev, subjects: newSubjects }));
-                  }}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
-                >
-                  <option value="">Select Level</option>
-                  {subjectLevels.map((level) => (
-                    <option key={level} value={level}>{level}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const newSubjects = formData.subjects.filter((_, i) => i !== index);
-                    setFormData(prev => ({ ...prev, subjects: newSubjects }));
-                  }}
-                  className="px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => {
-                setFormData(prev => ({
-                  ...prev,
-                  subjects: [...prev.subjects, { subject: '', level: '', classes: [] }]
-                }));
-              }}
-              className="w-full px-4 py-3 border-2 border-dashed border-blue-300 rounded-xl text-blue-600 hover:bg-blue-50 transition-colors"
-            >
-              + Add Subject
-            </button>
+            {subjects.map((subject) => {
+              const subjectData = formData.subjects.find(s => s.subject === subject);
+              const isSelected = !!subjectData;
+              
+              return (
+                <div key={subject} className="border border-gray-200 rounded-xl p-4">
+                  <div className="flex items-center space-x-3 mb-3">
+                    <input
+                      type="checkbox"
+                      id={`subject-${subject}`}
+                      checked={isSelected}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          handleSubjectChange(subject, subjectLevels[0], []);
+                        } else {
+                          handleSubjectChange(subject, null);
+                        }
+                      }}
+                      className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+                    />
+                    <label htmlFor={`subject-${subject}`} className="text-sm font-medium text-gray-900">
+                      {subject}
+                    </label>
+                  </div>
+                  
+                  {isSelected && (
+                    <div className="space-y-3 ml-7">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-2">
+                          Subject Level
+                        </label>
+                        <select
+                          value={subjectData?.level || ''}
+                          onChange={(e) => handleSubjectChange(subject, e.target.value, subjectData?.classes || [])}
+                          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-gray-50 focus:bg-white"
+                        >
+                          {subjectLevels.map((level) => (
+                            <option key={level} value={level}>{level}</option>
+                          ))}
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-2">
+                          Grade Levels (Select multiple)
+                        </label>
+                        <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto border border-gray-200 rounded-lg p-2 bg-gray-50">
+                          {grades.map((grade) => (
+                            <label key={grade} className="flex items-center space-x-2 text-xs">
+                              <input
+                                type="checkbox"
+                                checked={(subjectData?.classes || []).includes(grade)}
+                                onChange={(e) => {
+                                  const currentClasses = subjectData?.classes || [];
+                                  const newClasses = e.target.checked
+                                    ? [...currentClasses, grade]
+                                    : currentClasses.filter(g => g !== grade);
+                                  handleSubjectChange(subject, subjectData?.level, newClasses);
+                                }}
+                                className="w-3 h-3 text-primary bg-white border-gray-300 rounded focus:ring-primary focus:ring-1"
+                              />
+                              <span className="text-gray-700">{grade}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
+          {renderValidationError('subjects')}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="flex items-center space-x-3 cursor-pointer p-4 bg-gray-50 rounded-xl border border-gray-200 hover:bg-gray-100 transition-colors">
-              <input
-                type="checkbox"
-                checked={formData.isSponsor}
-                onChange={(e) => handleInputChange('isSponsor', e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm font-semibold text-gray-700">Is Class Sponsor?</span>
+        <div className="border-t border-gray-200 pt-6">
+          <div className="flex items-center space-x-3 mb-4">
+            <input
+              type="checkbox"
+              id="isSponsor"
+              checked={formData.isSponsor}
+              onChange={(e) => {
+                handleInputChange('isSponsor', e.target.checked);
+                if (!e.target.checked) {
+                  handleInputChange('sponsorClass', '');
+                }
+              }}
+              className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2"
+            />
+            <label htmlFor="isSponsor" className="text-sm font-semibold text-gray-700">
+              Class Sponsor
             </label>
           </div>
-
+          
           {formData.isSponsor && (
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Sponsor Class *
               </label>
               <select
                 value={formData.sponsorClass}
                 onChange={(e) => handleInputChange('sponsorClass', e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
-                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+                required={formData.isSponsor}
               >
-                <option value="">Select Class</option>
-                {grades.map((currentClass) => (
-                  <option key={currentClass} value={currentClass}>{currentClass}</option>
+                <option value="">Select Class to Sponsor</option>
+                {grades.map((grade) => (
+                  <option key={grade} value={grade}>{grade}</option>
                 ))}
               </select>
+              {renderValidationError('sponsorClass')}
             </div>
           )}
         </div>
@@ -770,21 +988,21 @@ const UserCreationForm = () => {
   const renderAdministratorInfo = () => (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent mb-3">
+        <h2 className="text-3xl font-bold text-gray-900 mb-3">
           Administrative Information
         </h2>
-        <p className="text-gray-600 text-lg">Enter the administrator's position and responsibilities</p>
+        <p className="text-gray-600 text-lg">Enter the administrator's position details</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
+        <div className="md:col-span-2">
           <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Position *
+            Administrative Position *
           </label>
           <select
             value={formData.position}
             onChange={(e) => handleInputChange('position', e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
             required
           >
             <option value="">Select Position</option>
@@ -794,6 +1012,7 @@ const UserCreationForm = () => {
               </option>
             ))}
           </select>
+          {renderValidationError('position')}
         </div>
 
         <div>
@@ -803,13 +1022,130 @@ const UserCreationForm = () => {
           <select
             value={formData.department}
             onChange={(e) => handleInputChange('department', e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
           >
             <option value="">Select Department</option>
             {departments.map((dept) => (
               <option key={dept} value={dept}>{dept}</option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            Reports To
+          </label>
+          <input
+            type="text"
+            value={formData.reportsTo}
+            onChange={(e) => handleInputChange('reportsTo', e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+            placeholder="Enter supervisor's name or ID"
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderGuardianInfo = () => (
+    <div className="space-y-8">
+      <div className="text-center">
+        <h2 className="text-3xl font-bold text-gray-900 mb-3">
+          Guardian Information
+        </h2>
+        <p className="text-gray-600 text-lg">Enter the student's guardian details</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            Guardian First Name *
+          </label>
+          <input
+            type="text"
+            value={formData.guardian.firstName}
+            onChange={(e) => handleInputChange('firstName', e.target.value, true)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+            placeholder="Enter guardian's first name"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            Guardian Middle Name
+          </label>
+          <input
+            type="text"
+            value={formData.guardian.middleName}
+            onChange={(e) => handleInputChange('middleName', e.target.value, true)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+            placeholder="Enter guardian's middle name"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            Guardian Last Name *
+          </label>
+          <input
+            type="text"
+            value={formData.guardian.lastName}
+            onChange={(e) => handleInputChange('lastName', e.target.value, true)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+            placeholder="Enter guardian's last name"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            Guardian Phone *
+          </label>
+          <div className="relative">
+            <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="tel"
+              value={formData.guardian.phone}
+              onChange={(e) => handleInputChange('phone', e.target.value, true)}
+              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+              placeholder="Enter guardian's phone"
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            Guardian Email
+          </label>
+          <div className="relative">
+            <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="email"
+              value={formData.guardian.email}
+              onChange={(e) => handleInputChange('email', e.target.value, true)}
+              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+              placeholder="Enter guardian's email"
+            />
+          </div>
+        </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            Guardian Address *
+          </label>
+          <div className="relative">
+            <MapPin className="absolute left-4 top-4 text-gray-400 w-5 h-5" />
+            <textarea
+              value={formData.guardian.address}
+              onChange={(e) => handleInputChange('address', e.target.value, true)}
+              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white resize-none"
+              rows="3"
+              placeholder="Enter guardian's full address"
+              required
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -818,7 +1154,7 @@ const UserCreationForm = () => {
   const renderEmploymentInfo = () => (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-3">
+        <h2 className="text-3xl font-bold text-gray-900 mb-3">
           Employment Information
         </h2>
         <p className="text-gray-600 text-lg">Enter employment and qualification details</p>
@@ -827,13 +1163,28 @@ const UserCreationForm = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Qualification *
+            Department
+          </label>
+          <select
+            value={formData.department}
+            onChange={(e) => handleInputChange('department', e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+          >
+            <option value="">Select Department</option>
+            {departments.map((dept) => (
+              <option key={dept} value={dept}>{dept}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            Highest Qualification
           </label>
           <select
             value={formData.qualification}
             onChange={(e) => handleInputChange('qualification', e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
-            required
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
           >
             {qualifications.map((qual) => (
               <option key={qual} value={qual}>{qual}</option>
@@ -849,169 +1200,46 @@ const UserCreationForm = () => {
             <Clock className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
             <input
               type="number"
-              min="0"
-              max="50"
               value={formData.experience}
               onChange={(e) => handleInputChange('experience', e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
-              placeholder="0"
+              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+              placeholder="Years of experience"
+              min="0"
             />
           </div>
         </div>
 
         <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            Salary
+          </label>
+          <div className="relative">
+            <DollarSign className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="number"
+              value={formData.salary}
+              onChange={(e) => handleInputChange('salary', e.target.value)}
+              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+              placeholder="Annual salary"
+              min="0"
+              step="0.01"
+            />
+          </div>
+        </div>
+
+        <div className="md:col-span-2">
           <label className="block text-sm font-semibold text-gray-700 mb-3">
             Employment Status
           </label>
           <select
             value={formData.employmentStatus}
             onChange={(e) => handleInputChange('employmentStatus', e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
           >
             {employmentStatuses.map((status) => (
               <option key={status.value} value={status.value}>{status.label}</option>
             ))}
           </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Salary (Optional)
-          </label>
-          <div className="relative">
-            <DollarSign className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={formData.salary}
-              onChange={(e) => handleInputChange('salary', e.target.value)}
-              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
-              placeholder="0.00"
-            />
-          </div>
-        </div>
-
-        {selectedUserType === 'teacher' && !formData.department && (
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">
-              Department
-            </label>
-            <select
-              value={formData.department}
-              onChange={(e) => handleInputChange('department', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
-            >
-              <option value="">Select Department</option>
-              {departments.map((dept) => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderGuardianInfo = () => (
-    <div className="space-y-8">
-      <div className="text-center">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-3">
-          Guardian Information
-        </h2>
-        <p className="text-gray-600 text-lg">Enter the student's guardian/parent details</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
-            First Name *
-          </label>
-          <input
-            type="text"
-            value={formData.guardian.firstName}
-            onChange={(e) => handleInputChange('firstName', e.target.value, true)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
-            placeholder="Enter guardian's first name"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Middle Name
-          </label>
-          <input
-            type="text"
-            value={formData.guardian.middleName}
-            onChange={(e) => handleInputChange('middleName', e.target.value, true)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
-            placeholder="Enter guardian's middle name"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Last Name *
-          </label>
-          <input
-            type="text"
-            value={formData.guardian.lastName}
-            onChange={(e) => handleInputChange('lastName', e.target.value, true)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
-            placeholder="Enter guardian's last name"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Phone Number *
-          </label>
-          <div className="relative">
-            <Phone className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="tel"
-              value={formData.guardian.phone}
-              onChange={(e) => handleInputChange('phone', e.target.value, true)}
-              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
-              placeholder="Enter guardian's phone"
-              required
-            />
-          </div>
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Email Address
-          </label>
-          <div className="relative">
-            <Mail className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="email"
-              value={formData.guardian.email}
-              onChange={(e) => handleInputChange('email', e.target.value, true)}
-              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
-              placeholder="Enter guardian's email"
-            />
-          </div>
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Address *
-          </label>
-          <div className="relative">
-            <MapPin className="absolute left-4 top-4 text-gray-400 w-5 h-5" />
-            <textarea
-              value={formData.guardian.address}
-              onChange={(e) => handleInputChange('address', e.target.value, true)}
-              className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white resize-none"
-              rows="3"
-              placeholder="Enter guardian's address"
-              required
-            />
-          </div>
         </div>
       </div>
     </div>
@@ -1020,22 +1248,10 @@ const UserCreationForm = () => {
   const renderAccountSetup = () => (
     <div className="space-y-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-3">
+        <h2 className="text-3xl font-bold text-gray-900 mb-3">
           Account Setup
         </h2>
         <p className="text-gray-600 text-lg">Create login credentials for the user</p>
-      </div>
-
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl p-6">
-        <div className="flex items-center space-x-3 mb-2">
-          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
-            <Shield className="w-4 h-4 text-white" />
-          </div>
-          <h3 className="font-semibold text-blue-900">Security Notice</h3>
-        </div>
-        <p className="text-sm text-blue-800">
-          The user will be required to change their password on first login for security purposes.
-        </p>
       </div>
 
       <div className="space-y-6">
@@ -1044,31 +1260,31 @@ const UserCreationForm = () => {
             Username *
           </label>
           <div className="flex space-x-3">
-            <input
-              type="text"
-              value={formData.username}
-              onChange={(e) => handleInputChange('username', e.target.value)}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
-              placeholder="Enter username"
-              required
-            />
+            <div className="flex-1 relative">
+              <User className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                value={formData.username}
+                onChange={(e) => handleInputChange('username', e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+                placeholder="Enter username"
+                required
+              />
+            </div>
             <button
               type="button"
               onClick={generateUsername}
-              className="px-6 py-3 bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-xl hover:from-gray-600 hover:to-gray-700 transition-all text-sm font-medium transform hover:scale-105"
-              disabled={!formData.firstName || !formData.lastName}
+              className="px-4 py-3 bg-secondary text-secondary-foreground rounded-xl hover:bg-secondary/80 transition-colors font-medium"
             >
-              Auto-generate
+              Generate
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-2">
-            Username will be used for system login
-          </p>
+          {renderValidationError('username')}
         </div>
 
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-3">
-            Temporary Password *
+            Password *
           </label>
           <div className="flex space-x-3">
             <div className="flex-1 relative">
@@ -1076,14 +1292,15 @@ const UserCreationForm = () => {
                 type={showPassword ? 'text' : 'password'}
                 value={formData.password}
                 onChange={(e) => handleInputChange('password', e.target.value)}
-                className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
-                placeholder="Enter temporary password"
+                className="w-full pl-4 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+                placeholder="Enter password"
                 required
+                minLength="8"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
                 {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
               </button>
@@ -1091,14 +1308,11 @@ const UserCreationForm = () => {
             <button
               type="button"
               onClick={generatePassword}
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl hover:from-blue-600 hover:to-indigo-700 transition-all text-sm font-medium transform hover:scale-105"
+              className="px-4 py-3 bg-secondary text-secondary-foreground rounded-xl hover:bg-secondary/80 transition-colors font-medium"
             >
               Generate
             </button>
           </div>
-          {formData.password && formData.password.length < 8 && (
-            <p className="text-red-500 text-xs mt-2">Password must be at least 8 characters long</p>
-          )}
         </div>
 
         <div>
@@ -1110,85 +1324,50 @@ const UserCreationForm = () => {
               type={showConfirmPassword ? 'text' : 'password'}
               value={formData.confirmPassword}
               onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
-              className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
+              className="w-full pl-4 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all bg-gray-50 focus:bg-white"
               placeholder="Confirm password"
               required
             />
             <button
               type="button"
               onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
             >
               {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </button>
           </div>
-          {formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword && (
-            <p className="text-red-500 text-xs mt-2">Passwords do not match</p>
+          {formData.password !== formData.confirmPassword && formData.confirmPassword && (
+            <div className="flex items-center space-x-2 mt-2 text-red-600">
+              <AlertCircle className="w-4 h-4" />
+              <span className="text-sm">Passwords do not match</span>
+            </div>
           )}
         </div>
-      </div>
 
-      {/* User Summary Card */}
-      <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-2xl p-6">
-        <h3 className="font-bold text-gray-900 mb-4 text-lg">User Summary</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Name:</span>
-              <span className="font-semibold text-gray-900">{formData.firstName} {formData.lastName}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Role:</span>
-              <span className="font-semibold text-gray-900 capitalize">{selectedUserType}</span>
-            </div>
-            {formData.gender && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Gender:</span>
-                <span className="font-semibold text-gray-900 capitalize">{formData.gender}</span>
+        {formData.password && formData.password.length > 0 && (
+          <div className="bg-gray-50 p-4 rounded-xl">
+            <h4 className="text-sm font-semibold text-gray-700 mb-2">Password Strength:</h4>
+            <div className="space-y-1">
+              <div className={`flex items-center space-x-2 text-sm ${formData.password.length >= 8 ? 'text-green-600' : 'text-red-600'}`}>
+                {formData.password.length >= 8 ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                <span>At least 8 characters</span>
               </div>
-            )}
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Username:</span>
-              <span className="font-semibold text-gray-900">{formData.username}</span>
+              <div className={`flex items-center space-x-2 text-sm ${/[A-Z]/.test(formData.password) ? 'text-green-600' : 'text-red-600'}`}>
+                {/[A-Z]/.test(formData.password) ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                <span>Contains uppercase letter</span>
+              </div>
+              <div className={`flex items-center space-x-2 text-sm ${/[0-9]/.test(formData.password) ? 'text-green-600' : 'text-red-600'}`}>
+                {/[0-9]/.test(formData.password) ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+                <span>Contains number</span>
+              </div>
             </div>
           </div>
-          <div className="space-y-3">
-            {selectedUserType === 'student' && formData.currentClass && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Grade:</span>
-                <span className="font-semibold text-gray-900">{formData.currentClass}</span>
-              </div>
-            )}
-            {selectedUserType === 'teacher' && formData.subjects.length > 0 && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Subjects:</span>
-                <span className="font-semibold text-gray-900">
-                  {formData.subjects.slice(0, 2).map(s => s.subject).join(', ')}
-                  {formData.subjects.length > 2 ? '...' : ''}
-                </span>
-              </div>
-            )}
-            {selectedUserType === 'administrator' && formData.position && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Position:</span>
-                <span className="font-semibold text-gray-900">
-                  {administratorPositions.find(p => p.value === formData.position)?.label}
-                </span>
-              </div>
-            )}
-            {formData.department && (
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Department:</span>
-                <span className="font-semibold text-gray-900">{formData.department}</span>
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );
 
-  const renderCurrentStep = () => {
+  const renderStepContent = () => {
     switch (currentStep) {
       case 0:
         return renderUserTypeSelection();
@@ -1209,110 +1388,172 @@ const UserCreationForm = () => {
     }
   };
 
+  const getNextButtonText = () => {
+    if (currentStep === steps.length - 1) return 'Create User';
+    return 'Next Step';
+  };
+
+  const shouldShowValidationLoading = () => {
+    return isValidating && (
+      (currentStep === 4) || // Account setup (username)
+      (currentStep === 2 && selectedUserType === 'teacher') || // Teacher subjects
+      (currentStep === 2 && selectedUserType === 'administrator') || // Admin position
+      (currentStep === 3 && selectedUserType === 'teacher' && formData.isSponsor) // Teacher sponsor
+    );
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
-      <div className="max-w-5xl mx-auto">
-        <div className="bg-white rounded-3xl shadow-2xl border border-gray-200 overflow-hidden">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-600 text-white p-8">
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-white bg-opacity-20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
-                <UserPlus className="w-8 h-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold mb-2">Add New User</h1>
-                <p className="text-indigo-100 text-lg">Create a new user account in the system</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="px-8 py-6 bg-gray-50 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-gray-700">
-                Step {currentStep + 1} of {steps.length}
-              </span>
-              <span className="text-sm text-gray-500 bg-gray-200 px-3 py-1 rounded-full">
-                {Math.round(((currentStep + 1) / steps.length) * 100)}% Complete
-              </span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
-              <div 
-                className="bg-gradient-to-r from-indigo-500 via-purple-500 to-blue-500 h-3 rounded-full transition-all duration-500 ease-out shadow-lg"
-                style={{ width: `${((currentStep + 1) / steps.length) * 100}%` }}
-              />
-            </div>
-            <div className="flex justify-between mt-4">
-              {steps.map((step, index) => (
-                <div 
-                  key={step}
-                  className={`flex flex-col items-center space-y-2 ${
-                    index <= currentStep ? 'text-indigo-600' : 'text-gray-400'
-                  }`}
-                >
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
-                    index < currentStep 
-                      ? 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg' 
-                      : index === currentStep 
-                      ? 'bg-indigo-100 text-indigo-600 border-2 border-indigo-500 shadow-md' 
-                      : 'bg-gray-200 text-gray-500'
-                  }`}>
-                    {index < currentStep ? <Check className="w-5 h-5" /> : index + 1}
-                  </div>
-                  <span className="text-xs font-semibold text-center hidden md:block max-w-20">{step}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Form Content */}
-          <div className="p-8 min-h-[600px]">
-            {renderCurrentStep()}
-          </div>
-
-          {/* Footer Navigation */}
-          <div className="px-8 py-6 bg-gray-50 border-t border-gray-200">
-            <div className="flex justify-between items-center">
-              <button
-                onClick={prevStep}
-                disabled={currentStep === 0 || isSubmitting}
-                className="flex items-center space-x-2 px-6 py-3 text-gray-600 bg-white border-2 border-gray-300 rounded-xl hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium"
-              >
-                <ChevronLeft className="w-5 h-5" />
-                <span>Previous</span>
-              </button>
-
-              {currentStep === steps.length - 1 ? (
-                <button
-                  onClick={handleSubmit}
-                  disabled={!validateCurrentStep() || isSubmitting}
-                  className="flex items-center space-x-3 px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-xl hover:from-green-600 hover:to-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold transform hover:scale-105 shadow-lg"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Creating User...</span>
-                    </>
+    <div className="min-h-screen bg-background">
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        {/* Progress Bar */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            {steps.map((step, index) => (
+              <div key={step} className="flex items-center">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-semibold transition-all ${
+                  index <= currentStep 
+                    ? 'bg-primary text-primary-foreground shadow-lg' 
+                    : 'bg-muted text-muted-foreground'
+                }`}>
+                  {index < currentStep ? (
+                    <Check className="w-5 h-5" />
                   ) : (
-                    <>
-                      <UserPlus className="w-5 h-5" />
-                      <span>Create User</span>
-                    </>
+                    <span>{index + 1}</span>
                   )}
-                </button>
-              ) : (
-                <button
-                  onClick={nextStep}
-                  disabled={!validateCurrentStep() || isSubmitting}
-                  className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl hover:from-indigo-600 hover:to-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-semibold transform hover:scale-105 shadow-lg"
-                >
-                  <span>Next</span>
-                  <ChevronRight className="w-5 h-5" />
-                </button>
+                </div>
+                {index < steps.length - 1 && (
+                  <div className={`w-12 h-1 mx-2 transition-all ${
+                    index < currentStep ? 'bg-primary' : 'bg-muted'
+                  }`} />
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="text-center">
+            <h3 className="text-lg font-semibold text-foreground">{steps[currentStep]}</h3>
+            <p className="text-muted-foreground">Step {currentStep + 1} of {steps.length}</p>
+          </div>
+        </div>
+
+        {/* Main Form Content */}
+        <div className="bg-card border border-border rounded-2xl shadow-lg overflow-hidden">
+          <div className="p-8">
+            {renderStepContent()}
+          </div>
+
+          {/* Navigation */}
+          <div className="bg-muted/30 px-8 py-6 flex items-center justify-between border-t border-border">
+            <button
+              type="button"
+              onClick={prevStep}
+              disabled={currentStep === 0}
+              className={`flex items-center space-x-2 px-6 py-3 rounded-xl transition-all font-medium ${
+                currentStep === 0
+                  ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                  : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+              }`}
+            >
+              <ChevronLeft className="w-5 h-5" />
+              <span>Previous</span>
+            </button>
+
+            <div className="flex items-center space-x-4">
+              {validationErrors.general && (
+                <div className="flex items-center space-x-2 text-red-600">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm">{validationErrors.general}</span>
+                </div>
               )}
+              
+              <button
+                type="button"
+                onClick={currentStep === steps.length - 1 ? handleSubmit : nextStep}
+                disabled={!validateCurrentStep() || shouldShowValidationLoading() || isSubmitting}
+                className={`flex items-center space-x-2 px-6 py-3 rounded-xl transition-all font-medium ${
+                  !validateCurrentStep() || shouldShowValidationLoading() || isSubmitting
+                    ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                }`}
+              >
+                {shouldShowValidationLoading() || isSubmitting ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <ChevronRight className="w-5 h-5" />
+                )}
+                <span>
+                  {shouldShowValidationLoading() ? 'Validating...' : 
+                   isSubmitting ? 'Creating...' : 
+                   getNextButtonText()}
+                </span>
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Summary Card - Show on final step */}
+        {currentStep === steps.length - 1 && (
+          <div className="mt-8 bg-card border border-border rounded-2xl shadow-lg p-6">
+            <h3 className="text-xl font-bold text-foreground mb-4">User Summary</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-semibold text-muted-foreground">Type:</span>
+                <span className="ml-2 text-foreground capitalize">{selectedUserType}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-muted-foreground">Name:</span>
+                <span className="ml-2 text-foreground">
+                  {formData.firstName} {formData.middleName} {formData.lastName}
+                </span>
+              </div>
+              <div>
+                <span className="font-semibold text-muted-foreground">Username:</span>
+                <span className="ml-2 text-foreground">{formData.username}</span>
+              </div>
+              <div>
+                <span className="font-semibold text-muted-foreground">Phone:</span>
+                <span className="ml-2 text-foreground">{formData.phone}</span>
+              </div>
+              {selectedUserType === 'student' && (
+                <>
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Grade:</span>
+                    <span className="ml-2 text-foreground">{formData.grade}</span>
+                  </div>
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Guardian:</span>
+                    <span className="ml-2 text-foreground">
+                      {formData.guardian.firstName} {formData.guardian.lastName}
+                    </span>
+                  </div>
+                </>
+              )}
+              {selectedUserType === 'teacher' && (
+                <>
+                  <div>
+                    <span className="font-semibold text-muted-foreground">Subjects:</span>
+                    <span className="ml-2 text-foreground">
+                      {formData.subjects.map(s => s.subject).join(', ')}
+                    </span>
+                  </div>
+                  {formData.isSponsor && (
+                    <div>
+                      <span className="font-semibold text-muted-foreground">Sponsor Class:</span>
+                      <span className="ml-2 text-foreground">{formData.sponsorClass}</span>
+                    </div>
+                  )}
+                </>
+              )}
+              {selectedUserType === 'administrator' && (
+                <div>
+                  <span className="font-semibold text-muted-foreground">Position:</span>
+                  <span className="ml-2 text-foreground">
+                    {administratorPositions.find(p => p.value === formData.position)?.label}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
