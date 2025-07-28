@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { ClassLevel, ClassId } from './User';
 
-const SchoolSettings = new Schema({
+const SchoolSettingsSchema = new Schema({
   studentsCanLogin: { type: Boolean, default: true },
   teachersCanLogin: { type: Boolean, default: true },
   administratorsCanLogin: { type: Boolean, default: true },
@@ -22,7 +22,6 @@ const ClassScheduleSchema = new Schema({
   subject: { type: String, required: true }
 });
 
-// Class Schema
 const ClassSchema = new Schema({
   classId: { 
     type: String, 
@@ -47,7 +46,6 @@ const ClassSchema = new Schema({
 }, {
   timestamps: true
 });
-
 
 // Grade Submission Schema
 const GradeSubmissionSchema = new Schema({
@@ -82,78 +80,20 @@ const GradeSubmissionSchema = new Schema({
 });
 
 // Event Schema
-const EventSchema = new Schema({
-  title: { type: String, required: true },
+const EventLogSchema = new Schema({
+  type: { type: String, required: true, enum: ["password", "grade", "login"] },
   description: { type: String, required: true },
-  startDate: { type: Date, required: true },
-  endDate: { type: Date },
-  participants: { 
-    type: String, 
-    enum: ['all', 'students', 'teachers', 'parents', 'administrators'],
-    default: 'all' 
-  },
-  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  location: { type: String },
-  isActive: { type: Boolean, default: true },
-  attendees: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  dateTime: { type: Date, required: true },
   notificationSent: { type: Boolean, default: false }
 }, {
   timestamps: true
 });
 
-// Message Schema (for standalone messages, different from user messages)
 const MessageSchema = new Schema({
   senderId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   receiverId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   content: { type: String, required: true },
-  subject: { type: String },
-  messageType: { 
-    type: String, 
-    enum: ['direct', 'announcement', 'grade_notification', 'event_notification'],
-    default: 'direct' 
-  },
   read: { type: Boolean, default: false },
-  readAt: { type: Date },
-  priority: { 
-    type: String, 
-    enum: ['low', 'normal', 'high', 'urgent'],
-    default: 'normal' 
-  }
-}, {
-  timestamps: true
-});
-
-// Subject Schema
-const SubjectSchema = new Schema({
-  name: { type: String, unique: true, required: true },
-  code: { type: String, unique: true, required: true },
-  description: { type: String },
-  level: { 
-    type: String, 
-    enum: ["Self Contained", "Elementry", "Junior High", "Senior High"],
-    required: true 
-  },
-  credits: { type: Number, default: 1 },
-  isActive: { type: Boolean, default: true },
-  prerequisites: [{ type: Schema.Types.ObjectId, ref: 'Subject' }]
-}, {
-  timestamps: true
-});
-
-// Attendance Schema
-const AttendanceSchema = new Schema({
-  studentId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  classId: { type: String, required: true },
-  date: { type: Date, required: true },
-  status: { 
-    type: String, 
-    enum: ['present', 'absent', 'late', 'excused'],
-    required: true 
-  },
-  markedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  notes: { type: String },
-  period: { type: String }, // Which class period
-  subject: { type: String }
 }, {
   timestamps: true
 });
@@ -164,7 +104,7 @@ const FeeSchema = new Schema({
   academicYear: { type: String, required: true },
   feeType: { 
     type: String, 
-    enum: ['tuition', 'registration', 'books', 'uniform', 'transport', 'meals', 'other'],
+    enum: ['tuition', 'registration', 'fieldTrip', 'uniform', 'transport', 'computer', 'e-potal'],
     required: true 
   },
   amount: { type: Number, required: true },
@@ -182,29 +122,6 @@ const FeeSchema = new Schema({
 }, {
   timestamps: true
 });
-
-// Create indexes for better performance
-ClassSchema.index({ level: 1, academicYear: 1 });
-ClassSchema.index({ sponsorId: 1 });
-
-GradeSubmissionSchema.index({ teacherId: 1, academicYear: 1 });
-GradeSubmissionSchema.index({ status: 1 });
-GradeSubmissionSchema.index({ classId: 1, subject: 1 });
-
-EventSchema.index({ startDate: 1 });
-EventSchema.index({ participants: 1 });
-EventSchema.index({ isActive: 1 });
-
-MessageSchema.index({ senderId: 1, receiverId: 1 });
-MessageSchema.index({ read: 1 });
-MessageSchema.index({ messageType: 1 });
-
-AttendanceSchema.index({ studentId: 1, date: 1 });
-AttendanceSchema.index({ classId: 1, date: 1 });
-
-FeeSchema.index({ studentId: 1, academicYear: 1 });
-FeeSchema.index({ status: 1 });
-FeeSchema.index({ dueDate: 1 });
 
 
 export interface IClass extends Document {
@@ -234,15 +151,9 @@ export interface IGradeSubmission extends Document {
 }
 
 export interface IEventLog extends Document {
-  title: string;
+  type: string;
   description: string;
-  startDate: Date;
-  endDate?: Date;
-  participants: string;
-  createdBy: mongoose.Types.ObjectId;
-  location?: string;
-  isActive: boolean;
-  attendees: mongoose.Types.ObjectId[];
+  dateTime: Date;
   notificationSent: boolean;
 }
 
@@ -250,21 +161,8 @@ export interface IMessage extends Document {
   senderId: mongoose.Types.ObjectId;
   receiverId: mongoose.Types.ObjectId;
   content: string;
-  subject?: string;
   messageType: string;
   read: boolean;
-  readAt?: Date;
-  priority: string;
-  attachments: any[];
-}
-
-
-export interface ISubject extends Document {
-  name: string;
-  code: string;
-  description?: string;
-  level: ClassLevel;
-
 }
 
 
@@ -282,17 +180,29 @@ export interface IFee extends Document {
   description?: string;
 }
 
+export interface ISchoolSettings extends Document {
+  studentsCanLogin: boolean;
+  teachersCanLogin: boolean;
+  administratorsCanLogin: boolean;
+  systemAdminCanLogin: boolean;
+  teachersCanSubmitGrades: boolean;
+  studentsCanViewPeriodicReports: boolean;
+  studentsCanViewYearlyReports: boolean;
+}
+
 // Create and export models
 const Class = mongoose.model<IClass>('Class', ClassSchema);
 const GradeSubmission = mongoose.model<IGradeSubmission>('GradeSubmission', GradeSubmissionSchema);
 const Message = mongoose.model<IMessage>('Message', MessageSchema);
-const Subject = mongoose.model<ISubject>('Subject', SubjectSchema);
 const Fee = mongoose.model<IFee>('Fee', FeeSchema);
+const SchoolSettings = mongoose.model<ISchoolSettings>("SchoolSettings", SchoolSettingsSchema);
+const EventLog = mongoose.model<IEventLog>("EventLog", EventLogSchema);
 
 export {
   Class,
   GradeSubmission,
   Message,
-  Subject,
-  Fee
+  Fee,
+  SchoolSettings,
+  EventLog
 };
