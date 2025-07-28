@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSidebar } from "../../../context/SidebarContext";
-import { getNavItems } from "@/utils/utils";
+import { getNavItems } from "@/utils";
 import { ChevronDown } from "lucide-react";
 import useAuth from "@/store/useAuth";
 import Logo from "@/components/Logo";

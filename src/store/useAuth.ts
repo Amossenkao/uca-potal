@@ -79,19 +79,18 @@ const useAuth = create<AuthState>((set, get) => ({
         }),
       });
 
+      const data = await res.json();
+
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: 'Login failed' }));
         set({ 
-          error: errorData.message || 'Invalid credentials',
+          error: data.message || 'Invalid credentials',
           isLoading: false 
         });
         return false;
       }
 
-      const data = await res.json();
-
-      // Check if OTP verification is required (admin role)
       if (data.requiresOTP) {
+        console.log('OTP required, setting up OTP state');
         set({
           sessionId: data.sessionId,
           isAwaitingOtp: true,
@@ -99,13 +98,11 @@ const useAuth = create<AuthState>((set, get) => ({
           error: null,
           isLoading: false,
         });
-        return false; // Indicates OTP is required, not a failure
+        return false; 
       }
 
-      // Regular login successful
       const { user, token, refreshToken } = data;
 
-      // Validate required fields
       if (!user || !token) {
         set({ 
           error: 'Invalid response from server',
@@ -114,7 +111,6 @@ const useAuth = create<AuthState>((set, get) => ({
         return false;
       }
 
-      // Store in localStorage
       try {
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('token', token);
@@ -156,22 +152,31 @@ const useAuth = create<AuthState>((set, get) => ({
       return false;
     }
 
+    // Validate OTP format (6 digits)
+    if (!otp || !/^\d{6}$/.test(otp.trim())) {
+      set({ error: 'Please enter a valid 6-digit OTP' });
+      return false;
+    }
+
     set({ isLoading: true, error: null });
     
     try {
+      console.log(`Verifying OTP: ${otp} with session: ${sessionId}`);
+      
       const res = await fetch(`${API_URL}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'verify_otp',
           sessionId,
-          otp
+          otp: otp.trim() // Ensure we trim whitespace
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        console.error('OTP verification failed:', data.message);
         set({ 
           error: data.message || 'Invalid OTP',
           isLoading: false 
@@ -190,6 +195,8 @@ const useAuth = create<AuthState>((set, get) => ({
         return false;
       }
 
+      console.log('OTP verification successful, logging in user');
+
       // Store in localStorage
       try {
         localStorage.setItem('user', JSON.stringify(user));
@@ -199,7 +206,6 @@ const useAuth = create<AuthState>((set, get) => ({
         console.warn('Failed to save to localStorage:', storageError);
       }
 
-      // Update state
       set({
         user,
         token,
@@ -234,6 +240,8 @@ const useAuth = create<AuthState>((set, get) => ({
     set({ isLoading: true, error: null });
     
     try {
+      console.log('Resending OTP for session:', sessionId);
+      
       const res = await fetch(`${API_URL}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -253,7 +261,6 @@ const useAuth = create<AuthState>((set, get) => ({
         return false;
       }
 
-      // Update session ID and contact info if changed
       set({
         sessionId: data.sessionId,
         otpContact: data.contact,
@@ -276,20 +283,19 @@ const useAuth = create<AuthState>((set, get) => ({
     set({ isLoading: true });
     
     try {
-      // Attempt to notify server of logout
-      await axios.post(`${API_URL}/logout`, {}, {
+      await fetch(`/api/auth/login`, {
+        method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${get().token}`
+          'Authorization': `Bearer ${get().token}`,
+          'Content-Type': 'application/json'
         }
       }).catch(() => {
-        // Ignore logout API errors, still proceed with local logout
         console.warn('Server logout failed, proceeding with local logout');
       });
     } catch (error) {
       console.warn('Logout request failed:', error);
     }
 
-    // Clear localStorage
     try {
       localStorage.removeItem('user');
       localStorage.removeItem('token');
@@ -389,7 +395,6 @@ const useAuth = create<AuthState>((set, get) => ({
       }
     } catch (error) {
       console.error('Failed to load from storage:', error);
-      // Clear corrupted data
       get().logout();
     }
   },

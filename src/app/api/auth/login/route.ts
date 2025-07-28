@@ -4,6 +4,7 @@ import bcrypt from 'bcryptjs';
 import { connectDB } from '@/lib/mongoose';
 import { serialize } from 'cookie';
 import { Student, Teacher, Administrator, SystemAdmin } from '@/models/User';
+import mongoose from 'mongoose';
 
 const models = {
   student: Student,
@@ -27,9 +28,61 @@ async function sendOTP(contact: string, otp: string): Promise<boolean> {
   return true;
 }
 
+// Helper function to find user by ID across all models
+async function findUserById(userId: string) {
+  if (!userId) {
+    console.log('findUserById: No userId provided');
+    return null;
+  }
+
+  // Check if userId is a valid MongoDB ObjectId
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    console.log(`findUserById: Invalid ObjectId format: ${userId}`);
+    return null;
+  }
+
+  console.log(`findUserById: Searching for user with ID: ${userId}`);
+  
+  try {
+    // Try SystemAdmin first since OTP is primarily for system_admin
+    console.log('Checking SystemAdmin model...');
+    let user = await SystemAdmin.findById(userId);
+    if (user) {
+      console.log(`User found in SystemAdmin: ${user.username}`);
+      return user;
+    }
+    
+    console.log('Checking Student model...');
+    user = await Student.findById(userId);
+    if (user) {
+      console.log(`User found in Student: ${user.username}`);
+      return user;
+    }
+    
+    console.log('Checking Teacher model...');
+    user = await Teacher.findById(userId);
+    if (user) {
+      console.log(`User found in Teacher: ${user.username}`);
+      return user;
+    }
+    
+    console.log('Checking Administrator model...');
+    user = await Administrator.findById(userId);
+    if (user) {
+      console.log(`User found in Administrator: ${user.username}`);
+      return user;
+    }
+    
+    console.log('User not found in any model');
+    return null;
+  } catch (error) {
+    console.error('Error finding user by ID:', error);
+    console.error('Error details:', error.message);
+    return null;
+  }
+}
 
 function setAuthTokens(user: any, response: NextResponse) {
-
   const token = jwt.sign(
     {
       id: user._id.toString(), // Use MongoDB's _id
@@ -115,16 +168,26 @@ async function handleLogin(username: string, password: string, role: string, pos
     );
   }
 
-  console.log(models[role])
-
-  let user = await models[role].findOne({username, role})
-  // switch (role) {
-  //   case "student": user = await Student.findOne({ username, role })
-  //     break;
-  //   case "teacher": user = await Teacher.findOne({ username, role })
-  //     break;
-  //   case "administrator": user = await Administrator.findOne({username, role})
-  // }
+  let user;
+  switch (role) {
+    case "student": 
+      user = await Student.findOne({ username, role });
+      break;
+    case "teacher": 
+      user = await Teacher.findOne({ username, role });
+      break;
+    case "administrator": 
+      user = await Administrator.findOne({ username, role });
+      break;
+    case "system_admin": 
+      user = await SystemAdmin.findOne({ username, role });
+      break;
+    default:
+      return NextResponse.json(
+        { message: 'Invalid role' }, 
+        { status: 400 }
+      );
+  }
 
   // Verify user exists
   if (!user) {
@@ -133,7 +196,9 @@ async function handleLogin(username: string, password: string, role: string, pos
       { status: 401 }
     );
   }
-  console.log(user)
+
+  console.log('User found:', user.username);
+
   // Check if user is active
   if (!user.isActive) {
     return NextResponse.json(
@@ -141,7 +206,6 @@ async function handleLogin(username: string, password: string, role: string, pos
       { status: 403 }
     );
   }
-
 
   // Verify password using bcrypt
   const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -162,21 +226,8 @@ async function handleLogin(username: string, password: string, role: string, pos
     }
   }
 
-  // Check if user must change password
-  // if (user.mustChangePassword) {
-  //   return NextResponse.json({
-  //     message: 'Password change required',
-  //     requiresPasswordChange: true,
-  //     user: {
-  //       id: user._id.toString(),
-  //       username: user.username,
-  //       role: user.role,
-  //     }
-  //   }, { status: 200 });
-  // }
-
-  // For administrator role, generate OTP and require verification
-  if (role === 'system_admi') {
+  // For system_admin role, generate OTP and require verification
+  if (role === 'system_admin') {
     const otp = generateOTP();
     
     // Create temporary session for OTP verification
@@ -184,7 +235,9 @@ async function handleLogin(username: string, password: string, role: string, pos
       userId: user._id.toString(),
       otp,
       timestamp: Date.now(),
-      contact: user.email || user.phone
+      contact: user.email || user.phone,
+      role: user.role,
+      username: user.username
     };
     
     const sessionId = jwt.sign(sessionData, JWT_SECRET, { expiresIn: '10m' });
@@ -198,6 +251,8 @@ async function handleLogin(username: string, password: string, role: string, pos
         { status: 500 }
       );
     }
+
+    console.log(`OTP ${otp} generated for user ${user.username} with session ${sessionId}`);
 
     // Return OTP verification required response
     return NextResponse.json({
@@ -216,7 +271,7 @@ async function handleLogin(username: string, password: string, role: string, pos
     });
   }
 
-  // For non-administrator roles, complete login immediately
+  // For non-system_admin roles, complete login immediately
   const response = NextResponse.json({
     message: 'Login successful',
     requiresOTP: false,
@@ -282,7 +337,12 @@ async function handleOTPVerification(sessionId: string, otp: string) {
   try {
     // Verify and decode session
     const decoded = jwt.verify(sessionId, JWT_SECRET) as any;
-    const { userId, otp: expectedOTP, timestamp } = decoded;
+    const { userId, otp: expectedOTP, timestamp, role, username } = decoded;
+
+    console.log(`OTP verification attempt for user ${username}:`);
+    console.log(`Expected OTP: ${expectedOTP}, Received OTP: ${otp}`);
+    console.log(`UserId from session: ${userId}`);
+    console.log(`Timestamp: ${timestamp}, Current: ${Date.now()}`);
 
     // Check if OTP session is expired (10 minutes)
     if (Date.now() - timestamp > 10 * 60 * 1000) {
@@ -292,17 +352,30 @@ async function handleOTPVerification(sessionId: string, otp: string) {
       );
     }
 
-    // Verify OTP
-    if (otp !== expectedOTP) {
+    // Verify OTP (convert both to strings for comparison)
+    if (String(otp).trim() !== String(expectedOTP).trim()) {
+      console.log('OTP verification failed: mismatch');
       return NextResponse.json(
         { message: 'Invalid OTP. Please try again.' }, 
         { status: 401 }
       );
     }
 
-    // Get user details
-    const user = await findUserById(userId);
+    console.log('OTP verification successful, finding user...');
+
+    // Get user details - try SystemAdmin first since OTP is only for system_admin
+    let user = await SystemAdmin.findById(userId);
+    
     if (!user) {
+      console.log('User not found in SystemAdmin, trying other models...');
+      // Fallback to other models if needed
+      user = await findUserById(userId);
+    }
+
+    console.log(`User found: ${user ? user.username : 'null'}`);
+
+    if (!user) {
+      console.log('User not found in any model');
       return NextResponse.json(
         { message: 'User not found' }, 
         { status: 404 }
@@ -327,7 +400,7 @@ async function handleOTPVerification(sessionId: string, otp: string) {
         phone: user.phone,
         email: user.email,
         bio: user.bio,
-        // Role-specific fields
+        // Role-specific fields based on actual user role
         ...(user.role === 'student' && {
           grade: user.grade || user.currentClass,
           guardian: user.guardian,
@@ -348,14 +421,19 @@ async function handleOTPVerification(sessionId: string, otp: string) {
           qualification: user.qualification,
           experience: user.experience,
           employmentStatus: user.employmentStatus
+        }),
+        ...(user.role === 'system_admin' && {
+          employeeId: user.employeeId,
+          department: user.department,
+          qualification: user.qualification,
+          experience: user.experience,
+          employmentStatus: user.employmentStatus
         })
       },
     });
 
-    // Set authentication tokens
     const { token, refreshToken } = setAuthTokens(user, response);
     
-    // Add tokens to response body
     const responseData = await response.json();
     return NextResponse.json({
       ...responseData,
@@ -364,8 +442,20 @@ async function handleOTPVerification(sessionId: string, otp: string) {
     });
 
   } catch (error) {
+    console.error('OTP verification error:', error);
+    if (error.name === 'JsonWebTokenError') {
+      return NextResponse.json(
+        { message: 'Invalid session token. Please login again.' }, 
+        { status: 401 }
+      );
+    } else if (error.name === 'TokenExpiredError') {
+      return NextResponse.json(
+        { message: 'Session expired. Please login again.' }, 
+        { status: 401 }
+      );
+    }
     return NextResponse.json(
-      { message: 'Invalid or expired session. Please login again.' }, 
+      { message: 'Session verification failed. Please login again.' }, 
       { status: 401 }
     );
   }
@@ -384,7 +474,7 @@ async function handleResendOTP(sessionId: string) {
     const decoded = jwt.verify(sessionId, JWT_SECRET) as any;
     const { userId } = decoded;
 
-    // Get user details
+    // Get user details using the helper function
     const user = await findUserById(userId);
     if (!user) {
       return NextResponse.json(
@@ -401,7 +491,9 @@ async function handleResendOTP(sessionId: string) {
       userId: user._id.toString(),
       otp: newOTP,
       timestamp: Date.now(),
-      contact: user.email || user.phone
+      contact: user.email || user.phone,
+      role: user.role,
+      username: user.username
     };
     
     const newSessionId = jwt.sign(newSessionData, JWT_SECRET, { expiresIn: '10m' });
@@ -416,6 +508,8 @@ async function handleResendOTP(sessionId: string) {
       );
     }
 
+    console.log(`New OTP ${newOTP} generated for user ${user.username}`);
+
     return NextResponse.json({
       message: 'New OTP sent successfully',
       sessionId: newSessionId,
@@ -425,6 +519,7 @@ async function handleResendOTP(sessionId: string) {
     });
 
   } catch (error) {
+    console.error('Resend OTP error:', error);
     return NextResponse.json(
       { message: 'Invalid or expired session. Please login again.' }, 
       { status: 401 }
@@ -432,13 +527,11 @@ async function handleResendOTP(sessionId: string) {
   }
 }
 
-// Optional: Add logout functionality
 export async function DELETE(request: NextRequest) {
   const response = NextResponse.json({
     message: 'Logged out successfully'
   });
 
-  // Clear auth cookies
   response.headers.set(
     'Set-Cookie',
     serialize('accessToken', '', {

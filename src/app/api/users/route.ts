@@ -3,11 +3,10 @@ import { connectDB } from '@/lib/mongoose';
 import { Student, Teacher, Administrator } from '@/models/User';
 import bcrypt from 'bcryptjs';
 
-// GET - Fetch users by role
 export async function GET(request: NextRequest) {
   try {
     await connectDB();
-
+    
     const { searchParams } = new URL(request.url);
     const role = searchParams.get('role');
     const limit = parseInt(searchParams.get('limit') || '50');

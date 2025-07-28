@@ -33,3 +33,13 @@ export function getNavItems(role: string) {
     })
     .filter(Boolean);
 }
+
+const subjects = {
+  selfContained: [],
+  lowerElementry: [],
+  uppperElementry: ["Mathematics", "English", "Bible", "Spelling", "Reading"],
+  juniorHigh: [],
+  seniorHigh: []
+}
+
+

@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
     'Set-Cookie',
     serialize('accessToken', '', {
       httpOnly: true,
-      path: '/',
+      path: '/login',
       maxAge: 0,
     })
   );
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     'Set-Cookie',
     serialize('refreshToken', '', {
       httpOnly: true,
-      path: '/',
+      path: '/login',
       maxAge: 0,
     })
   );

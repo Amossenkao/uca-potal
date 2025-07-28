@@ -36,6 +36,8 @@ export interface Class {
   level: ClassLevel;
   sponsorId: string;
   schedule: ClassSchedule;
+  studentIds: string[];
+  teacherIds: string[];
 }
 
 export interface User {
@@ -71,6 +73,22 @@ interface UserNavItem {
   subItems?: { name: string; href: string; icon?: LucideIcon; roles?: string[], excludeRoles?: string[]}[];
 }
 
+export interface StudentGrade {
+  academicYear: string;
+  firstPeriod: {teacherId: string; teacher: string; grade: number }[],
+  secondPeriod: {teacherId: string; teacher: string; grade: number }[],
+  thirdPeriod: {teacherId: string; teacher: string; grade: number }[],
+  ThirdPeriodExam: {teacherId: string; teacher: string; grade: number }[],
+  firstSemesterAverage: {teacherId: string; teacher: string; grade: number }[],
+  fourthPeriod: {teacherId: string; teacher: string; grade: number }[],
+  fifthPeriod: {teacherId: string; teacher: string; grade: number }[],
+  sixthPeriod: {teacherId: string; teacher: string; grade: number }[],
+  secondSemesterExam: {teacherId: string; teacher: string; grade: number }[],
+  secondSemesterAverage: {teacherId: string; teacher: string; grade: number }[],
+  yearlyAverage: {studentId: string; student: string; grade: number }[],
+
+}
+
 export interface Student extends User {
   role: 'student';
   studentId: string;
@@ -85,8 +103,7 @@ export interface Student extends User {
   address: string;
   
   },
-
-  grades: any[]
+  grades: StudentGrade[]
 }
 
 export interface TeacherSubject {
@@ -98,6 +115,19 @@ export interface TeacherGrade {
   subject: string;
   academicYear: string;
   class: ClassId;
+  className: string;
+  firstPeriod: {studentId: string; student: string; grade: number }[],
+  secondPeriod: {studentId: string; student: string; grade: number }[],
+  thirdPeriod: {studentId: string; student: string; grade: number }[],
+  ThirdPeriodExam: {studentId: string; student: string; grade: number }[],
+  firstSemesterAverage: {studentId: string; student: string; grade: number }[],
+  fourthPeriod: {studentId: string; student: string; grade: number }[],
+  fifthPeriod: {studentId: string; student: string; grade: number }[],
+  sixthPeriod: {studentId: string; student: string; grade: number }[],
+  secondSemesterExam: {studentId: string; student: string; grade: number }[],
+  secondSemesterAverage: {studentId: string; student: string; grade: number }[],
+  yearlyAverage: {studentId: string; student: string; grade: number }[],
+  
 }
 
 export interface Teacher extends User {
@@ -110,73 +140,25 @@ export interface Teacher extends User {
 
 }
 
-export interface Admin extends User {
-  role: 'admin';
+export interface Administrator extends User {
+  role: 'administrator';
   adminId: string;
-  department: string;
+  position: string;
   permissions: string[];
+  requiresOtp: false;
 }
 
 export interface SystemAdmin extends User {
   role: 'system_admin';
-  permissions: string[];
+  requiresOtp: true;
 }
 
-export interface Submission {
+export interface GradeSubmission {
   id: string;
-  assignmentId: string;
-  studentId: string;
+  teacherId: string;
   submissionDate: string;
-  content: string;
-  attachments?: string[];
-  marks?: number;
-  feedback?: string;
-  status: 'pending' | 'submitted' | 'graded';
-}
-
-export interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  date: string;
-  author: string;
-  target: 'all' | 'students' | 'teachers' | 'admins' | string;
-}
-
-export interface Attendance {
-  id: string;
-  date: string;
-  courseId: string;
-  records: AttendanceRecord[];
-}
-
-export interface AttendanceRecord {
-  studentId: string;
-  status: 'present' | 'absent' | 'late' | 'excused';
-  remark?: string;
-}
-
-export interface Grade {
-  id: string;
-  studentId: string;
-  courseId: string;
-  assignmentId?: string;
-  examId?: string;
-  score: number;
-  outOf: number;
-  type: 'assignment' | 'exam' | 'quiz' | 'project' | 'other';
-  date: string;
-  feedback?: string;
-}
-
-export interface Exam {
-  id: string;
-  title: string;
-  description: string;
-  courseId: string;
-  date: string;
-  duration: number; // in minutes
-  totalMarks: number;
+  grades: TeacherGrade[];
+  status: 'pending' | 'submitted' | 'approved' | "rejected";
 }
 
 export interface Event {
@@ -185,9 +167,7 @@ export interface Event {
   description: string;
   startDate: string;
   endDate?: string;
-  location?: string;
-  organizer: string;
-  participants: 'all' | 'students' | 'teachers' | 'parents' | string;
+  participants: 'all' | 'students' | 'teachers' | 'parents' | "administrators" | string;
 }
 
 export interface Message {
