@@ -8,6 +8,7 @@ import { ChevronDown } from "lucide-react";
 import useAuth from "@/store/useAuth";
 import Logo from "@/components/Logo";
 import { useRouter } from "next/navigation";
+import {useDashboardNavigator} from "@/store/useDashboardNavigator"
 
 const NavigationSkeleton: React.FC<{ isExpanded: boolean; isHovered: boolean; isMobileOpen: boolean }> = ({ 
   isExpanded, 
@@ -30,8 +31,10 @@ const NavigationSkeleton: React.FC<{ isExpanded: boolean; isHovered: boolean; is
 
 const AppSidebar: React.FC = () => {
   const router = useRouter()
-  const { isLoggedIn, user, isLoading, loadFromStorage } = useAuth();
+  const { isLoggedIn, user, isLoading, loadFromStorage, logout } = useAuth();
   const [isInitializing, setIsInitializing] = useState(true);
+  const { currentView, setView } = useDashboardNavigator()
+  
   
   useEffect(() => {
     const initializeAuth = async () => {
@@ -114,7 +117,15 @@ const renderMenuItems = (items: NavItem[]) => (
         }
 
         return (
-          <li key={item.name} className={item.disabled ? "hidden" : undefined}>
+          <li key={item.name} className={item.disabled ? "hidden" : undefined}
+            onClick={subItems ? undefined : async (e) => {
+              e.preventDefault();
+              setView(item.id);
+              if (item.name.toLowerCase() === "logout") {
+                await logout();
+              }
+              
+           }}>
             {subItems ? (
               <button
                 onClick={() => handleSubmenuToggle(index)}
@@ -178,10 +189,16 @@ const renderMenuItems = (items: NavItem[]) => (
                 <ul className="mt-2 space-y-1 ml-9">
                   {subItems.map((sub) => (
                     <li key={sub.name}>
+
                       <Link
                         href={sub.href}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setView(sub.id);
+                          
+                        }}
                         className={`menu-dropdown-item flex items-center gap-2 ${
-                          isActive(sub.href)
+                          currentView == sub.id
                             ? "menu-dropdown-item-active"
                             : "menu-dropdown-item-inactive"
                         }`}

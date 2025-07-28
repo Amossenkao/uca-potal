@@ -1,4 +1,3 @@
-
 import {
   MessageCircle,
   Users,
@@ -20,186 +19,195 @@ import {
   School,
 } from "lucide-react";
 
+// Utility to convert name to id
+const toId = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
 
 export const NAV_ITEMS = [
   {
     name: "Dashboard",
     icon: LayoutDashboard,
-    href: "/",
+    id: toId("Dashboard"),
+    href: "#",
   },
-
   {
-    name: "Users",
+    name: "Manage Users",
     icon: Users,
-    roles: ["vpi"],
-    subItems: [
-      { name: "Student", href: "/Student", icon: GraduationCap},
-      { name: "Teacher", href: "/teachers", icon: BookOpen},
-      { name: "Administrator", href: "/administrators", icon: Shield},
-    ],
+    roles: ["system_admin"],
+    href: "#",
+    id: toId("Manage Users")
   },
-
-    {
+  {
     name: "Admissions",
     icon: Users,
     roles: ["registrar"],
+    href: "/",
     subItems: [
-      { name: "View Applications", href: "/Student", icon: GraduationCap},
-      { name: "Admit New Student", href: "/teachers", icon: BookOpen},
+      { name: "View Applications", id: toId("View Applications"), icon: GraduationCap, href: "/" },
+      { name: "Admit New Student", id: toId("Admit New Student"), icon: BookOpen, href: "/" },
     ],
   },
-
-      {
+  {
     name: "Financial Reports",
     icon: Users,
-     roles: ["administration"],
-    positions: ["cashir"], 
-    href: "/financial-reports"
+    roles: ["administration"],
+    positions: ["cashir"],
+    id: toId("Financial Reports"),
+    href: "/",
   },
-
-    {
+  {
     name: "Fees Payment",
-      icon: Wallet,
+    icon: Wallet,
     roles: ["student"],
+    href: "/",
     subItems: [
-      { name: "Pay fees", href: "/grades/add", icon: FilePen },
-      { name: "View Financial Profile", href: "/grades/submit", icon: FilePen },
-
+      { name: "Pay fees", id: toId("Pay fees"), icon: FilePen, href: "/" },
+      { name: "View Financial Profile", id: toId("View Financial Profile"), icon: FilePen, href: "/" },
     ],
   },
 
   {
     name: "Grading",
     icon: CheckSquare,
-    roles: ['vpi', 'teacher', 'student', ],
+    roles: ["system_admin", "teacher", "student"],
+    href: "/",
     subItems: [
-      { name: "Add Grades", href: "/grades/add", icon: FilePen, roles: ['teacher'] },
-      { name: "Submit Grades", href: "/grades/submit", icon: FilePen, roles: ['teacher'] },
-      { name: "View Grades", href: "/grades/view", icon: FileText },
-      { name: "Approve or Reject Grades", href: "/grades/approve", icon: FileText, roles: ['vpi'] },
+      { name: "Add Grades", id: toId("Add Grades"), icon: FilePen, roles: ["teacher"], href: "/" },
+      { name: "Submit Grades", id: toId("Submit Grades"), icon: FilePen, roles: ["teacher"], href: "/" },
+      { name: "View Grades", id: toId("View Grades"), icon: FileText, href: "/" },
+      { name: "Approve or Reject Grades", id: toId("Approve or Reject Grades"), icon: FileText, roles: ["system_admin"], href: "/" },
     ],
   },
   {
     name: "Lesson Plans",
     icon: FileText,
-    roles: ['teacher', 'vpi'],
+    roles: ["teacher", "system_admin"],
+    href: "/",
     subItems: [
-      { name: "Submit Lesson Plan", href: "/lesson-plans/submit", icon: FilePen, roles: ['teacher'] },
-      { name: "Submit Scheme of Work", href: "/lesson-plans/scheme", icon: ClipboardList, roles: ['teacher'] },
-      { name: "Manage Lesson Plans", href: "/lesson-plans/view", icon: FileText, roles: ['teacher'] },
-      { name: "View Lesson Plans", href: "/lesson-plans/view", icon: FileText, roles: ['vpi'] },
-      { name: "View Scheme of Work", href: "/scheme-of-work/view", icon: FileText, roles: ['vpi'] },
+      { name: "Submit Lesson Plan", id: toId("Submit Lesson Plan"), icon: FilePen, roles: ["teacher"], href: "/" },
+      { name: "Submit Scheme of Work", id: toId("Submit Scheme of Work"), icon: ClipboardList, roles: ["teacher"], href: "/" },
+      { name: "Manage Lesson Plans", id: toId("Manage Lesson Plans"), icon: FileText, roles: ["teacher"], href: "/" },
+      { name: "View Lesson Plans", id: toId("View Lesson Plans"), icon: FileText, roles: ["system_admin"], href: "/" },
+      { name: "View Scheme of Work", id: toId("View Scheme of Work"), icon: FileText, roles: ["system_admin"], href: "/" },
     ],
   },
   {
     name: "Classes",
     icon: ClipboardList,
-    roles: ["vpi"],
+    roles: ["system_admin"],
+    href: "/",
     subItems: [
-      { name: "Overview", href: "/classes/overview", icon: ClipboardList },
-      { name: "Manage Classes", href: "/classes/manage", icon: FilePen },
-      { name: "Master Grade Sheets", href: "/classes/master-sheets", icon: FileText },
+      { name: "Overview", id: toId("Overview"), icon: ClipboardList, href: "/" },
+      { name: "Manage Classes", id: toId("Manage Classes"), icon: FilePen, href: "/" },
+      { name: "Master Grade Sheets", id: toId("Master Grade Sheets"), icon: FileText, href: "/" },
     ],
   },
   {
     name: "Scholarships & Wards",
     icon: Medal,
     roles: ["registrar"],
+    href: "/",
     subItems: [
-      { name: "Manage Scholarships", href: "/scholarships/manage", icon: Medal },
-      { name: "Ward Student", href: "/scholarships/recipients", icon: Users },
+      { name: "Manage Scholarships", id: toId("Manage Scholarships"), icon: Medal, href: "/" },
+      { name: "Ward Student", id: toId("Ward Student"), icon: Users, href: "/" },
     ],
   },
   {
     name: "Academic Reports",
     icon: FileText,
-    roles: ["vpi"],
+    roles: ["system_admin"],
+    href: "/",
     subItems: [
-      { name: "Periodic Reports", href: "/reports/periodic", icon: FileText },
-      { name: "Yearly Reports", href: "/reports/yearly", icon: FileText },
-      { name: "Other Reports", href: "/reports/other", icon:FileText },
+      { name: "Periodic Reports", id: toId("Periodic Reports"), icon: FileText, href: "/" },
+      { name: "Yearly Reports", id: toId("Yearly Reports"), icon: FileText, href: "/" },
+      { name: "Other Reports", id: toId("Other Reports"), icon: FileText, href: "/" },
     ],
   },
   {
     name: "Salary",
     icon: Wallet,
     excludeRoles: ["student", "supervisor", "proprietor"],
+    href: "/",
     subItems: [
-      { name: "Request Salary Advance", href: "/salary/advance", icon: Wallet },
-      { name: "Sign for Salary", href: "/salary/sign", icon: FilePen },
+      { name: "Request Salary Advance", id: toId("Request Salary Advance"), icon: Wallet, href: "/" },
+      { name: "Sign for Salary", id: toId("Sign for Salary"), icon: FilePen, href: "/" },
     ],
   },
-
-    {
+  {
     name: "Salary Payments",
     icon: Wallet,
-    roles: ['proprietor'],
+    roles: ["proprietor"],
+    href: "/",
     subItems: [
-      { name: "Pay Salaries", href: "/salary/advance", icon: Wallet },
-      { name: "Salary Requests", href: "/salary/sign", icon: FilePen },
+      { name: "Pay Salaries", id: toId("Pay Salaries"), icon: Wallet, href: "/" },
+      { name: "Salary Requests", id: toId("Salary Requests"), icon: FilePen, href: "/" },
     ],
   },
-
   {
     name: "Employees",
     icon: Wallet,
-    roles: ['proprietor'],
+    roles: ["proprietor"],
+    href: "/",
     subItems: [
-      { name: "Teachers", href: "/salary/advance", icon: Wallet },
-      { name: "Administrative Staff", href: "/salary/sign", icon: FilePen },
-      { name: "Other Employees", href: "/salary/sign", icon: FilePen },
+      { name: "Teachers", id: toId("Teachers"), icon: Wallet, href: "/" },
+      { name: "Administrative Staff", id: toId("Administrative Staff"), icon: FilePen, href: "/" },
+      { name: "Other Employees", id: toId("Other Employees"), icon: FilePen, href: "/" },
     ],
   },
-
   {
     name: "Student",
     icon: Wallet,
-      roles: ['proprietor'],
-    href: "/Student"
+    roles: ["proprietor"],
+    id: toId("Student"),
+    href: "/",
   },
-  
-  
   {
     name: "Calendar & Schedules",
     icon: CalendarDays,
+    href: "/",
     subItems: [
-    { name: "Add Event to Calendar", href: "/calendar/academic", icon: CalendarDays, roles: ['vpi'] },
-      { name: "Academic Calendar", href: "/calendar/academic", icon: CalendarDays },
-      { name: "Class Schedule", href: "/calendar/classes", icon: CalendarDays },
-      { name: "Exam Schedule", href: "/calendar/exams", icon: CalendarDays },
+      { name: "Add Event to Calendar", id: toId("Add Event to Calendar"), icon: CalendarDays, roles: ["system_admin"], href: "/" },
+      { name: "Academic Calendar", id: toId("Academic Calendar"), icon: CalendarDays, href: "/" },
+      { name: "Class Schedule", id: toId("Class Schedule"), icon: CalendarDays, href: "/" },
+      { name: "Exam Schedule", id: toId("Exam Schedule"), icon: CalendarDays, href: "/" },
     ],
   },
   {
     name: "Academic Resources",
     icon: Library,
+    href: "/",
     subItems: [
-      { name: "View Resources", href: "/resources/add", icon: FilePen },
-      { name: "Add a Resource", href: "/resources/add", icon: FilePen, roles: ["vpi", "vpa", "teacher"]},
-      { name: "Manage Resources", href: "/resources/manage", icon: FileText, roles: ["vpi", "vpa", "teacher"]},
+      { name: "View Resources", id: toId("View Resources"), icon: FilePen, href: "/" },
+      { name: "Add a Resource", id: toId("Add a Resource"), icon: FilePen, roles: ["system_admin", "vpa", "teacher"], href: "/" },
+      { name: "Manage Resources", id: toId("Manage Resources"), icon: FileText, roles: ["system_admin", "vpa", "teacher"], href: "/" },
     ],
   },
   {
     name: "School Profile",
     icon: School,
     roles: ["supervisor", "proprietor"],
+    href: "/",
     subItems: [
-      { name: "Edit Profile", href: "/school/edit", icon: FilePen },
-      { name: "Manage Info", href: "/school/info", icon: FileText },
+      { name: "Edit Profile", id: toId("Edit Profile"), icon: FilePen, href: "/" },
+      { name: "Manage Info", id: toId("Manage Info"), icon: FileText, href: "/" },
     ],
   },
   {
     name: "Messages",
     icon: MessageCircle,
-    href: "/messages",
+    id: toId("Messages"),
+    href: "/",
+    roles: ["system_admin"]
   },
   {
     name: "User Profile",
     icon: UserCircle,
-    href: "/profile",
+    id: toId("User Profile"),
+    href: "/",
   },
   {
     name: "Logout",
     icon: LogOut,
-    href: "/logout",
+    id: toId("Logout"),
+    href: "/",
   },
 ];

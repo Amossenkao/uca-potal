@@ -194,7 +194,9 @@ export interface ITeacher extends Document, BaseUser {
   salary?: number;
   employmentStatus: 'active' | 'on_leave' | 'terminated' | 'retired';
 }
-
+export interface ISystemAdmin extends Document, BaseUser {
+  role: "system_admin";
+}
 const TeacherSubjectSchema = new Schema({
   subject: { type: String, required: true },
   level: { type: String, required: true },
@@ -225,6 +227,29 @@ const TeacherGradesSchema = new Schema({
   secondSemesterAverage: [TeacherGradeEntrySchema],
   yearlyAverage: [TeacherGradeEntrySchema]
 }, { _id: false });
+
+const SystemAdminSchema: Schema<ISystemAdmin> = new Schema({
+  role: { type: String, required: true, default: 'system_admin' },
+  firstName: { type: String, required: true },
+  middleName: { type: String },
+  lastName: { type: String, required: true },
+  gender: { type: String, required: true, enum: ['male', 'female'] },
+  username: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  nickName: { type: String },
+  dateOfBirth: { type: Date, required: true },
+  phone: { type: String, required: true },
+  email: { type: String },
+  address: { type: String, required: true },
+  bio: { type: String },
+  isActive: { type: Boolean, default: true },
+  mustChangePassword: {type: Boolean, default: true}
+
+  
+}, {
+  timestamps: true,
+  collection: "system_admin"
+})
 
 const TeacherSchema: Schema<ITeacher> = new Schema({
   userId: { type: String, required: true, unique: true },
@@ -328,5 +353,6 @@ const AdministratorSchema: Schema<IAdministrator> = new Schema({
 const Student: Model<IStudent> = mongoose.models.Student || mongoose.model<IStudent>('Student', StudentSchema);
 const Teacher: Model<ITeacher> = mongoose.models.Teacher || mongoose.model<ITeacher>('Teacher', TeacherSchema);
 const Administrator: Model<IAdministrator> = mongoose.models.Administrator || mongoose.model<IAdministrator>('Administrator', AdministratorSchema);
+const SystemAdmin: Model<ISystemAdmin> = mongoose.models.SystemAdmin || mongoose.model<ISystemAdmin>('SystemAdmin', SystemAdminSchema);
 
-export { Student, Teacher, Administrator };
+export { Student, Teacher, Administrator, SystemAdmin};

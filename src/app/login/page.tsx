@@ -56,7 +56,7 @@ const LoginPage = () => {
     { value: 'student', label: 'Student/Parent', icon: GraduationCap, color: 'bg-blue-500' },
     { value: 'teacher', label: 'Teacher', icon: BookOpen, color: 'bg-green-500' },
     { value: 'administrator', label: 'School Administrator', icon: Users, color: 'bg-purple-500' },
-    { value: 'admin', label: 'System Admin', icon: Shield, color: 'bg-red-500' }
+    { value: 'system_admin', label: 'System Admin', icon: Shield, color: 'bg-red-500' }
   ];
 
   const adminPositions = [

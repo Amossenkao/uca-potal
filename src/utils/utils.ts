@@ -1,10 +1,9 @@
-import { NAV_ITEMS, DEFAULT_NAV_ITEMS } from "./navItems";
+import { NAV_ITEMS } from "./navItems";
 
 export function getNavItems(role: string) {
-  // Use default nav items when role is 'default' or during loading states
-  const sourceItems = role === 'default' ? DEFAULT_NAV_ITEMS : NAV_ITEMS;
+
   
-  return sourceItems
+  return NAV_ITEMS
     .filter((navItem) => {
       if (navItem.excludeRoles?.includes(role)) return false;
 

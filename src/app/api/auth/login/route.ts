@@ -3,12 +3,13 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { connectDB } from '@/lib/mongoose';
 import { serialize } from 'cookie';
-import { Student, Teacher, Administrator } from '@/models/User';
+import { Student, Teacher, Administrator, SystemAdmin } from '@/models/User';
 
 const models = {
   student: Student,
   teacher: Teacher,
   administrator: Administrator,
+  system_admin: SystemAdmin,
 }
 
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -28,6 +29,7 @@ async function sendOTP(contact: string, otp: string): Promise<boolean> {
 
 
 function setAuthTokens(user: any, response: NextResponse) {
+
   const token = jwt.sign(
     {
       id: user._id.toString(), // Use MongoDB's _id
@@ -78,7 +80,6 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const { action, username, password, role, position, otp, sessionId } = body;
 
-
   try {
     switch (action) {
       case 'login':
@@ -114,6 +115,8 @@ async function handleLogin(username: string, password: string, role: string, pos
     );
   }
 
+  console.log(models[role])
+
   let user = await models[role].findOne({username, role})
   // switch (role) {
   //   case "student": user = await Student.findOne({ username, role })
@@ -130,7 +133,7 @@ async function handleLogin(username: string, password: string, role: string, pos
       { status: 401 }
     );
   }
-
+  console.log(user)
   // Check if user is active
   if (!user.isActive) {
     return NextResponse.json(
@@ -139,7 +142,6 @@ async function handleLogin(username: string, password: string, role: string, pos
     );
   }
 
-  console.log(user)
 
   // Verify password using bcrypt
   const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -174,7 +176,7 @@ async function handleLogin(username: string, password: string, role: string, pos
   // }
 
   // For administrator role, generate OTP and require verification
-  if (role === 'administrator') {
+  if (role === 'system_admi') {
     const otp = generateOTP();
     
     // Create temporary session for OTP verification

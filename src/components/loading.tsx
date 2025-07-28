@@ -74,7 +74,7 @@ export const PageLoading = ({
               <div className="absolute inset-0 w-20 h-20 border-4 border-primary/20 rounded-full animate-spin border-t-primary"></div>
             </div>
             <div className="text-center">
-              <p className="text-lg font-semibold text-foreground mb-1">School Management System</p>
+              <p className="text-lg font-semibold text-foreground mb-1">Upstairs e-Potal System</p>
               {message && (
                 <p className="text-sm text-muted-foreground">{message}</p>
               )}
